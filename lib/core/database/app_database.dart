@@ -9,7 +9,15 @@ part 'app_database.g.dart';
 class Players extends Table {
   TextColumn get id => text()();
   TextColumn get name => text()();
+
   IntColumn get skillLevel => integer().withDefault(const Constant(1))();
+
+  IntColumn get rating => integer().withDefault(const Constant(1000))();
+
+  IntColumn get wins => integer().withDefault(const Constant(0))();
+
+  IntColumn get losses => integer().withDefault(const Constant(0))();
+
   DateTimeColumn get createdAt => dateTime()();
 
   @override
