@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1074831336261",
+    "project_id": "shuttleleague-c8c7d",
+    "storage_bucket": "shuttleleague-c8c7d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1074831336261:android:6925589dc5f29eaed2942c",
+        "android_client_info": {
+          "package_name": "com.shuttleleague.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAezSxL635M_dVE8_VbYUq04GMCkVBoMg0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
