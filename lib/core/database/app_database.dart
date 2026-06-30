@@ -65,3 +65,17 @@ LazyDatabase _openConnection() {
     return NativeDatabase(file);
   });
 }
+
+class LeaguePlayers extends Table {
+  TextColumn get id => text()();
+  TextColumn get leagueId => text()();
+  TextColumn get playerId => text()();
+  DateTimeColumn get joinedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DriftDatabase(
+  tables: [Players, Leagues, Matches, Attendance, LeaguePlayers],
+)
