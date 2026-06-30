@@ -42,15 +42,12 @@ class Attendance extends Table {
   TextColumn get id => text()();
   TextColumn get leagueId => text()();
   TextColumn get playerId => text()();
+  TextColumn get sessionId => text()(); // NEW
   DateTimeColumn get checkInTime => dateTime()();
-
   @override
   Set<Column> get primaryKey => {id};
 }
 
-@DriftDatabase(
-  tables: [Players, Leagues, Matches, Attendance],
-)
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
