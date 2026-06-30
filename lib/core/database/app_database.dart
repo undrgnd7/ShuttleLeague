@@ -29,10 +29,18 @@ class Leagues extends Table {
 class Matches extends Table {
   TextColumn get id => text()();
   TextColumn get leagueId => text()();
-  TextColumn get teamA => text()();
-  TextColumn get teamB => text()();
-  DateTimeColumn get scheduledAt => dateTime()();
-  BoolColumn get completed => boolean().withDefault(const Constant(false))();
+  TextColumn get sessionId => text()(); // NEW
+
+  TextColumn get teamAPlayer1 => text()();
+  TextColumn get teamAPlayer2 => text()();
+
+  TextColumn get teamBPlayer1 => text()();
+  TextColumn get teamBPlayer2 => text()();
+
+  IntColumn get teamAScore => integer().nullable()();
+  IntColumn get teamBScore => integer().nullable()();
+
+  DateTimeColumn get createdAt => dateTime()();
 
   @override
   Set<Column> get primaryKey => {id};
