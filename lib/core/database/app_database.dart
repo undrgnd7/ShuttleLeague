@@ -37,7 +37,7 @@ class Leagues extends Table {
 class Matches extends Table {
   TextColumn get id => text()();
   TextColumn get leagueId => text()();
-  TextColumn get sessionId => text()(); // NEW
+  TextColumn get sessionId => text()();
 
   TextColumn get teamAPlayer1 => text()();
   TextColumn get teamAPlayer2 => text()();
@@ -58,25 +58,10 @@ class Attendance extends Table {
   TextColumn get id => text()();
   TextColumn get leagueId => text()();
   TextColumn get playerId => text()();
-  TextColumn get sessionId => text()(); // NEW
+  TextColumn get sessionId => text()();
   DateTimeColumn get checkInTime => dateTime()();
   @override
   Set<Column> get primaryKey => {id};
-}
-
-class AppDatabase extends _$AppDatabase {
-  AppDatabase() : super(_openConnection());
-
-  @override
-  int get schemaVersion => 1;
-}
-
-LazyDatabase _openConnection() {
-  return LazyDatabase(() async {
-    final dbFolder = await getApplicationDocumentsDirectory();
-    final file = File(p.join(dbFolder.path, 'shuttle_league.sqlite'));
-    return NativeDatabase(file);
-  });
 }
 
 class LeaguePlayers extends Table {
@@ -92,3 +77,17 @@ class LeaguePlayers extends Table {
 @DriftDatabase(
   tables: [Players, Leagues, Matches, Attendance, LeaguePlayers],
 )
+class AppDatabase extends _$AppDatabase {
+  AppDatabase() : super(_openConnection());
+
+  @override
+  int get schemaVersion => 1;
+}
+
+LazyDatabase _openConnection() {
+  return LazyDatabase(() async {
+    final dbFolder = await getApplicationDocumentsDirectory();
+    final file = File(p.join(dbFolder.path, 'shuttle_league.sqlite'));
+    return NativeDatabase(file);
+  });
+}
