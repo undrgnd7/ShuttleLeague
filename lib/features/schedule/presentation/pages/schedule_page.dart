@@ -165,7 +165,7 @@ class _SetupView extends StatelessWidget {
     final activeCourts = courts.clamp(1, (n ~/ 4).clamp(1, 8));
     final activePerRound = activeCourts * 4;
     final rounds = n >= 4
-        ? (((n - 1) * n) / activePerRound).ceil().clamp(1, 30)
+        ? ((n * (n - 1)) / activePerRound).ceil().clamp(3, 30)
         : 0;
     final totalMatches = rounds * activeCourts;
     final allSelected = n == players.length;
