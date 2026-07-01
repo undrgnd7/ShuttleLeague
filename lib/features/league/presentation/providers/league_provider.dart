@@ -1,22 +1,24 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
-import '../../../../core/database/database_provider.dart';
+import '../../../../core/firebase/firebase_provider.dart';
 import '../../../player/data/player_model.dart';
 import '../../data/league_model.dart';
-import '../../data/league_repository_impl.dart';
+import '../../data/league_cloud_repository.dart';
 import '../../domain/league_repository.dart';
+
+final leagueRepositoryProvider = Provider<LeagueRepository>((ref) {
+  final db = ref.read(firestoreProvider);
+  return LeagueCloudRepository(db);
+});
 
 final leagueDetailPlayersProvider =
     FutureProvider.family<List<PlayerModel>, String>((ref, leagueId) {
-  final db = ref.read(databaseProvider);
-  final repo = LeagueRepositoryImpl(db);
-
-  return repo.getLeaguePlayers(leagueId);
+  final db = ref.read(firestoreProvider);
+  return LeagueCloudRepository(db).getLeaguePlayers(leagueId);
 });
 
 final leagueControllerProvider = Provider((ref) {
-  final db = ref.read(databaseProvider);
-  return LeagueController(LeagueRepositoryImpl(db));
+  return LeagueController(ref.read(leagueRepositoryProvider));
 });
 
 class LeagueController {
@@ -32,4 +34,6 @@ class LeagueController {
     );
     await _repo.createLeague(league);
   }
+
+  Future<void> deleteLeague(String id) => _repo.deleteLeague(id);
 }

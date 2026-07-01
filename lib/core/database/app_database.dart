@@ -9,15 +9,10 @@ part 'app_database.g.dart';
 class Players extends Table {
   TextColumn get id => text()();
   TextColumn get name => text()();
-
   IntColumn get skillLevel => integer().withDefault(const Constant(1))();
-
-  IntColumn get rating => integer().withDefault(const Constant(1000))();
-
+  IntColumn get rating => integer().withDefault(const Constant(0))();
   IntColumn get wins => integer().withDefault(const Constant(0))();
-
   IntColumn get losses => integer().withDefault(const Constant(0))();
-
   DateTimeColumn get createdAt => dateTime()();
 
   @override
@@ -38,16 +33,12 @@ class Matches extends Table {
   TextColumn get id => text()();
   TextColumn get leagueId => text()();
   TextColumn get sessionId => text()();
-
   TextColumn get teamAPlayer1 => text()();
   TextColumn get teamAPlayer2 => text()();
-
   TextColumn get teamBPlayer1 => text()();
   TextColumn get teamBPlayer2 => text()();
-
   IntColumn get teamAScore => integer().nullable()();
   IntColumn get teamBScore => integer().nullable()();
-
   DateTimeColumn get createdAt => dateTime()();
 
   @override
@@ -60,6 +51,7 @@ class Attendance extends Table {
   TextColumn get playerId => text()();
   TextColumn get sessionId => text()();
   DateTimeColumn get checkInTime => dateTime()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -81,7 +73,17 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        // Reset ratings to 0 to match new points-based system
+        await customStatement('UPDATE players SET rating = 0');
+      }
+    },
+  );
 }
 
 LazyDatabase _openConnection() {

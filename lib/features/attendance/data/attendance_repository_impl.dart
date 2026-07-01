@@ -3,7 +3,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../../core/database/app_database.dart';
 import '../domain/session_model.dart';
-import '../../domain/attendance_repository.dart';
+import '../domain/attendance_repository.dart';
 
 class AttendanceRepositoryImpl implements AttendanceRepository {
   final AppDatabase db;

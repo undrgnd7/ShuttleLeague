@@ -1,4 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
+
+import '../../../../features/match/domain/match_generator.dart';
 import '../../domain/live_session_state.dart';
 
 class QueueController extends StateNotifier<LiveSessionState> {
@@ -7,56 +10,80 @@ class QueueController extends StateNotifier<LiveSessionState> {
           LiveSessionState(
             sessionId: sessionId,
             waitingQueue: [],
-            activeMatchId: null,
-            courtAssignments: {},
+            activeMatches: [],
           ),
         );
 
-  /// Add player into queue
   void joinQueue(String playerId) {
-    final updated = [...state.waitingQueue, playerId];
+    if (state.waitingQueue.contains(playerId)) return;
+    final inActiveMatch = state.activeMatches
+        .any((m) => m.teamA.contains(playerId) || m.teamB.contains(playerId));
+    if (inActiveMatch) return;
 
-    state = state.copyWith(waitingQueue: updated);
+    state = state.copyWith(
+      waitingQueue: [...state.waitingQueue, playerId],
+    );
   }
 
-  /// Assign next match to court
-  void startNextMatch(int courtNumber) {
+  void removeFromQueue(String playerId) {
+    state = state.copyWith(
+      waitingQueue: state.waitingQueue.where((p) => p != playerId).toList(),
+    );
+  }
+
+  /// Start a match with 4 players from queue. Pass optional [ratings] map
+  /// for ELO-balanced pairing.
+  void startNextMatch({Map<String, int>? ratings}) {
     if (state.waitingQueue.length < 4) return;
 
-    final players = state.waitingQueue.take(4).toList();
+    final next4 = state.waitingQueue.take(4).toList();
     final remaining = state.waitingQueue.skip(4).toList();
 
-    final newAssignments = Map<int, String>.from(state.courtAssignments);
-    newAssignments[courtNumber] = "MATCH_${DateTime.now().millisecondsSinceEpoch}";
+    final pairings = MatchGenerator.generateDoubles(next4, ratings: ratings);
+    if (pairings.isEmpty) return;
+
+    final pair = pairings.first;
+    final courtNumber =
+        (state.activeMatches.isEmpty ? 1 : state.activeMatches.last.courtNumber + 1);
+
+    final match = ActiveMatch(
+      matchId: const Uuid().v4(),
+      courtNumber: courtNumber,
+      teamA: pair[0],
+      teamB: pair[1],
+    );
 
     state = state.copyWith(
       waitingQueue: remaining,
-      activeMatchId: newAssignments[courtNumber],
-      courtAssignments: newAssignments,
+      activeMatches: [...state.activeMatches, match],
     );
   }
 
-  /// End match and rotate players
+  /// End a match — winning team goes back to front of queue, losers to end.
   void endMatch({
-    required int courtNumber,
-    required List<String> winners,
-    required List<String> losers,
+    required String matchId,
+    required bool teamAWon,
   }) {
-    final queue = [...state.waitingQueue];
+    final match =
+        state.activeMatches.firstWhere((m) => m.matchId == matchId);
 
-    // Winners stay in rotation
-    queue.insertAll(0, winners);
+    final winners = teamAWon ? match.teamA : match.teamB;
+    final losers = teamAWon ? match.teamB : match.teamA;
 
-    // Losers go back to queue end
-    queue.addAll(losers);
-
-    final updatedCourts = Map<int, String>.from(state.courtAssignments);
-    updatedCourts.remove(courtNumber);
+    final newQueue = [
+      ...winners,
+      ...state.waitingQueue,
+      ...losers,
+    ];
 
     state = state.copyWith(
-      waitingQueue: queue,
-      courtAssignments: updatedCourts,
-      activeMatchId: null,
+      activeMatches:
+          state.activeMatches.where((m) => m.matchId != matchId).toList(),
+      waitingQueue: newQueue,
     );
+  }
+
+  void initWithPlayers(List<String> playerIds) {
+    state = state.copyWith(waitingQueue: playerIds);
   }
 }

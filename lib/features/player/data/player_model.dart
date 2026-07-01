@@ -2,7 +2,7 @@ class PlayerModel {
   final String id;
   final String name;
   final int skillLevel;
-  final int rating; // NEW (ELO)
+  final int rating; // total points: Win=+3, Loss=+1, starts at 0
   final int wins;
   final int losses;
   final DateTime createdAt;
@@ -11,7 +11,7 @@ class PlayerModel {
     required this.id,
     required this.name,
     required this.skillLevel,
-    this.rating = 1000,
+    this.rating = 0,
     this.wins = 0,
     this.losses = 0,
     required this.createdAt,

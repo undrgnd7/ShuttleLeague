@@ -1,0 +1,172 @@
+🏸 ShuttleLeague
+
+ShuttleLeague is a smart badminton league management app built with Flutter + Firebase, designed to automate and organize casual and competitive badminton sessions.
+
+It focuses on fast player grouping, fair matchmaking, attendance tracking, and live ranking updates using QR-based check-ins and intelligent scheduling.
+
+🚀 Vision
+
+Most casual badminton groups struggle with:
+
+Manual WhatsApp coordination
+Unbalanced teams
+Late cancellations
+No proper tracking of wins/losses
+Time wasted organizing games instead of playing
+
+ShuttleLeague solves this by turning every session into a structured, automated mini-league.
+
+🎯 Core Concept
+
+Each badminton session becomes a dynamic league system:
+
+Players join a session via QR code
+Attendance is confirmed via scan
+System automatically forms balanced doubles matches
+Players rotate fairly based on performance + attendance
+Results are recorded instantly
+Leaderboard updates in real-time
+📱 Key Features
+1. 🔳 QR-Based Session Join & Check-In
+Each session generates a unique QR code
+Players scan QR to join instantly
+Prevents manual registration errors
+Supports late joiners with dynamic match inclusion
+2. 🧠 Smart Matchmaking Engine
+Automatically forms balanced doubles teams
+Considers:
+Player skill rating (ELO-style system)
+Win/loss history
+Current fatigue/rotation fairness
+Ensures no player is repeatedly paired with same teammate
+3. 🔄 Dynamic Rotation System
+Players rotate in/out based on:
+Attendance time (early vs late arrival)
+Match count
+Rest fairness rules
+Keeps gameplay continuous without manual coordination
+4. 🏆 Live Leaderboard
+Real-time ranking updates
+Tracks:
+Wins / losses
+Win streaks
+Participation rate
+Session-based and global leaderboard views
+5. 📊 Match History Tracking
+Every match is stored in Firebase
+View:
+Past opponents
+Partner history
+Performance trends
+6. 👥 Player Profiles
+
+Each player has:
+
+Name / ID
+Skill rating (dynamic)
+Match history
+Attendance record
+Win rate statistics
+7. 📡 Real-Time Sync (Firebase)
+Instant updates across all devices
+Live session updates
+No manual refresh required
+8. 🧩 Admin / Host Controls
+Create session
+Generate QR code
+Start / stop matches
+Override teams if needed
+Manage players manually if required
+🏗️ Tech Stack
+Frontend
+Flutter (Cross-platform mobile app)
+Riverpod (State management)
+Backend
+Firebase Firestore (real-time database)
+Firebase Auth (optional player identity system)
+Firebase Cloud Functions (matchmaking logic)
+Firebase Realtime updates
+Optional Extensions
+QR generation library
+Local caching (Hive / SharedPreferences)
+⚙️ System Architecture
+[ Player App ]
+      ↓
+ QR Scan / Join Session
+      ↓
+[ Firebase Firestore ]
+      ↓
+ Matchmaking Engine (Cloud Function / Local Logic)
+      ↓
+ Team Assignment + Match Creation
+      ↓
+ Live Score Updates
+      ↓
+ Leaderboard Engine
+🧠 Smart Rules Engine (Core Logic)
+
+ShuttleLeague uses rule-based fairness logic:
+
+Match Formation Rules:
+Avoid repeated teammates
+Balance skill levels across teams
+Prioritize players waiting longest
+Keep match count equalized
+Rotation Rules:
+Early players get priority rotation
+Late players inserted into next available match
+Rest enforced after X matches
+Ranking Logic:
+ELO-style system:
+Win = +points (based on opponent strength)
+Loss = -small penalty
+Bonus for consistency streaks
+📲 User Flow
+1. Join Session
+Scan QR
+Enter session lobby
+2. Wait in Queue
+System auto assigns matches
+Shows “next match status”
+3. Play Match
+Teams displayed in-app
+4. Submit Result
+Auto or manual result entry
+5. Update Leaderboard
+Instant ranking update
+🧪 MVP Scope (Phase 1)
+
+Initial proof-of-concept includes:
+
+QR session join
+Player list
+Manual match creation (semi-auto)
+Basic leaderboard
+Firebase sync
+🚧 Future Enhancements
+Phase 2
+Fully automated matchmaking engine
+Skill-based balancing AI
+Smart fatigue system
+Phase 3
+Multi-court support
+Tournament mode (brackets)
+Seasonal rankings
+Phase 4
+Social features (friend lists, chat)
+Club management system
+Analytics dashboard
+🧑‍💻 Development Notes
+Built for real-world badminton group usage
+Optimized for fast session setup (<2 minutes)
+Designed for small clubs and casual players
+Focus on zero-admin experience during play
+📌 Philosophy
+
+“Less organizing. More playing.”
+
+ShuttleLeague removes friction so players can focus entirely on the game while the system handles fairness, structure, and tracking.
+
+📄 License
+
+MIT License (or your preferred license)
