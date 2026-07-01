@@ -1,8 +1,0 @@
-{
-  "elements": {},
-  "imports": [
-    "package:flutter_riverpod/flutter_riverpod.dart",
-    "package:shuttle_league/core/database/database_provider.dart",
-    "package:shuttle_league/features/player/data/player_model.dart"
-  ]
-}

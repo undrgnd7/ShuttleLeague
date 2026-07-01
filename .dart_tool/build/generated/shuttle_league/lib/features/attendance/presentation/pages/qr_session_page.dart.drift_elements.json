@@ -1,1 +1,0 @@
-{"valid_import":true,"imports":[{"uri":"package:flutter/material.dart","transitive":false},{"uri":"package:flutter_riverpod/flutter_riverpod.dart","transitive":false},{"uri":"package:uuid/uuid.dart","transitive":false},{"uri":"package:shuttle_league/features/attendance/presentation/providers/attendance_provider.dart","transitive":false}],"elements":[]}

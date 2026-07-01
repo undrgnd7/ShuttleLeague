@@ -1,9 +1,0 @@
-{
-  "elements": {},
-  "imports": [
-    "package:flutter_riverpod/flutter_riverpod.dart",
-    "package:shuttle_league/core/database/database_provider.dart",
-    "package:shuttle_league/features/attendance/data/attendance_repository_impl.dart",
-    "package:shuttle_league/features/attendance/domain/attendance_repository.dart"
-  ]
-}

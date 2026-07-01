@@ -1,1 +1,0 @@
-{"valid_import":true,"imports":[{"uri":"package:flutter_riverpod/flutter_riverpod.dart","transitive":false},{"uri":"package:shuttle_league/features/match/domain/match_repository.dart","transitive":false},{"uri":"package:shuttle_league/features/attendance/data/attendance_repository_impl.dart","transitive":false}],"elements":[]}

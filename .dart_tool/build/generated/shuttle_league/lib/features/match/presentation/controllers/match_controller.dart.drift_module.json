@@ -1,8 +1,0 @@
-{
-  "elements": {},
-  "imports": [
-    "package:flutter_riverpod/flutter_riverpod.dart",
-    "package:shuttle_league/features/match/domain/match_repository.dart",
-    "package:shuttle_league/features/attendance/data/attendance_repository_impl.dart"
-  ]
-}
