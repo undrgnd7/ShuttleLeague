@@ -14,7 +14,7 @@ class PlayerRepositoryImpl implements PlayerRepository {
       PlayersCompanion.insert(
         id: player.id,
         name: player.name,
-        skillLevel: player.skillLevel,
+        skillLevel: Value(player.skillLevel),
         createdAt: player.createdAt,
       ),
       mode: InsertMode.insertOrReplace,

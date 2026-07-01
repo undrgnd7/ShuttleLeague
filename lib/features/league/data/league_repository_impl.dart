@@ -17,7 +17,7 @@ class LeagueRepositoryImpl implements LeagueRepository {
       LeaguesCompanion.insert(
         id: league.id,
         name: league.name,
-        maxPlayers: league.maxPlayers,
+        maxPlayers: value(league.maxPlayers),
         createdAt: league.createdAt,
       ),
     );
