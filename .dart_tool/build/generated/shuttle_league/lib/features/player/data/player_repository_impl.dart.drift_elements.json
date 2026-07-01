@@ -1,0 +1,1 @@
+{"valid_import":true,"imports":[{"uri":"package:drift/drift.dart","transitive":false},{"uri":"package:shuttle_league/core/database/app_database.dart","transitive":false},{"uri":"package:shuttle_league/features/player/domain/player_repository.dart","transitive":false},{"uri":"package:shuttle_league/features/player/data/player_model.dart","transitive":false}],"elements":[]}

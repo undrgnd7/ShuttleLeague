@@ -1,0 +1,8 @@
+{
+  "elements": {},
+  "imports": [
+    "package:flutter/material.dart",
+    "package:shuttle_league/app/router.dart",
+    "package:shuttle_league/app/theme.dart"
+  ]
+}

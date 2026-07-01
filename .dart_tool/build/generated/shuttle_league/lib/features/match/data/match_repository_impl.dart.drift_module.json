@@ -1,0 +1,11 @@
+{
+  "elements": {},
+  "imports": [
+    "package:drift/drift.dart",
+    "package:uuid/uuid.dart",
+    "package:shuttle_league/core/database/app_database.dart",
+    "package:shuttle_league/features/domain/match_model.dart",
+    "package:shuttle_league/features/domain/match_generator.dart",
+    "package:shuttle_league/features/domain/match_repository.dart"
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "elements": {},
+  "imports": [
+    "package:flutter_riverpod/flutter_riverpod.dart",
+    "package:shuttle_league/features/queue/domain/live_session_state.dart"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "elements": {},
+  "imports": [
+    "package:flutter/material.dart",
+    "package:flutter_riverpod/flutter_riverpod.dart",
+    "package:shuttle_league/core/database/database_provider.dart",
+    "package:shuttle_league/features/league/data/league_model.dart",
+    "package:shuttle_league/features/league/data/league_repository_impl.dart",
+    "package:shuttle_league/features/league/presentation/pages/create_league_page.dart",
+    "package:shuttle_league/features/league/presentation/pages/league_detail_page.dart"
+  ]
+}

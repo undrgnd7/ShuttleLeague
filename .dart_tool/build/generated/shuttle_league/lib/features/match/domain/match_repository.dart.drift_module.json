@@ -1,0 +1,6 @@
+{
+  "elements": {},
+  "imports": [
+    "package:shuttle_league/features/match/match_model.dart"
+  ]
+}

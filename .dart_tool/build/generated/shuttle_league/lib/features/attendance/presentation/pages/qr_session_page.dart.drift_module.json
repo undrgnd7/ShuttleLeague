@@ -1,0 +1,9 @@
+{
+  "elements": {},
+  "imports": [
+    "package:flutter/material.dart",
+    "package:flutter_riverpod/flutter_riverpod.dart",
+    "package:uuid/uuid.dart",
+    "package:shuttle_league/features/attendance/presentation/providers/attendance_provider.dart"
+  ]
+}

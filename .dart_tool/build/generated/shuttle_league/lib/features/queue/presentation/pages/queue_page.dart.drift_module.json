@@ -1,0 +1,8 @@
+{
+  "elements": {},
+  "imports": [
+    "package:flutter/material.dart",
+    "package:flutter_riverpod/flutter_riverpod.dart",
+    "package:shuttle_league/features/queue/presentation/providers/queue_provider.dart"
+  ]
+}

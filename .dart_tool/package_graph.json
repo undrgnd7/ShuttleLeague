@@ -16,6 +16,7 @@
         "flutter_riverpod",
         "go_router",
         "intl",
+        "mobile_scanner",
         "path",
         "path_provider",
         "sqlite3_flutter_libs",
@@ -1033,6 +1034,16 @@
       "name": "vm_service",
       "version": "15.2.0",
       "dependencies": []
+    },
+    {
+      "name": "mobile_scanner",
+      "version": "6.0.11",
+      "dependencies": [
+        "flutter",
+        "flutter_web_plugins",
+        "plugin_platform_interface",
+        "web"
+      ]
     }
   ],
   "configVersion": 1

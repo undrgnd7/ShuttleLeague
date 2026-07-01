@@ -1,0 +1,1 @@
+{"valid_import":true,"imports":[{"uri":"package:flutter/material.dart","transitive":false},{"uri":"package:flutter_riverpod/flutter_riverpod.dart","transitive":false},{"uri":"package:firebase_core/firebase_core.dart","transitive":false},{"uri":"package:shuttle_league/app/app.dart","transitive":false}],"elements":[]}

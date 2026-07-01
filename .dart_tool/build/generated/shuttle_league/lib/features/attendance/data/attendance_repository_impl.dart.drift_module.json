@@ -1,0 +1,10 @@
+{
+  "elements": {},
+  "imports": [
+    "package:drift/drift.dart",
+    "package:uuid/uuid.dart",
+    "package:shuttle_league/core/database/app_database.dart",
+    "package:shuttle_league/features/attendance/domain/session_model.dart",
+    "package:shuttle_league/features/domain/attendance_repository.dart"
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "elements": {},
+  "imports": [
+    "package:go_router/go_router.dart",
+    "package:shuttle_league/features/splash/presentation/pages/splash_page.dart",
+    "package:shuttle_league/features/home/presentation/pages/home_page.dart",
+    "package:shuttle_league/features/league/presentation/pages/league_list_page.dart",
+    "package:shuttle_league/features/attendance/presentation/pages/qr_scan_page.dart"
+  ]
+}

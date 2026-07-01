@@ -1,0 +1,7 @@
+{
+  "elements": {},
+  "imports": [
+    "package:flutter_riverpod/flutter_riverpod.dart",
+    "package:shuttle_league/core/database/app_database.dart"
+  ]
+}

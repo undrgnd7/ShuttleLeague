@@ -1,0 +1,1 @@
+{"valid_import":true,"imports":[{"uri":"package:cloud_firestore/cloud_firestore.dart","transitive":false},{"uri":"package:shuttle_league/features/league/domain/league_repository.dart","transitive":false},{"uri":"package:shuttle_league/features/league/data/league_model.dart","transitive":false}],"elements":[]}

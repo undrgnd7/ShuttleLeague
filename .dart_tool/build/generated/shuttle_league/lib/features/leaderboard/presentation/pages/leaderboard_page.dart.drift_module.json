@@ -1,0 +1,8 @@
+{
+  "elements": {},
+  "imports": [
+    "package:flutter/material.dart",
+    "package:flutter_riverpod/flutter_riverpod.dart",
+    "package:shuttle_league/features/leaderboard/presentation/providers/leaderboard_provider.dart"
+  ]
+}

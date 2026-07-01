@@ -1,0 +1,6 @@
+{
+  "elements": {},
+  "imports": [
+    "package:shuttle_league/player/data/player_model.dart"
+  ]
+}

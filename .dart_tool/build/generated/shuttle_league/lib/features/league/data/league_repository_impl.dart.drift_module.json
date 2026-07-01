@@ -1,0 +1,11 @@
+{
+  "elements": {},
+  "imports": [
+    "package:drift/drift.dart",
+    "package:uuid/uuid.dart",
+    "package:shuttle_league/core/database/app_database.dart",
+    "package:shuttle_league/features/player/data/player_model.dart",
+    "package:shuttle_league/features/league/domain/league_repository.dart",
+    "package:shuttle_league/features/league/data/league_model.dart"
+  ]
+}
