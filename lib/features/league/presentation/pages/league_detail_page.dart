@@ -4,29 +4,52 @@ import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../../app/theme.dart';
+import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../player/data/player_model.dart';
 import '../../../player/presentation/providers/player_provider.dart';
+import '../../../schedule/presentation/providers/schedule_provider.dart';
+import '../../data/league_model.dart';
 import '../providers/league_provider.dart';
 
 class LeagueDetailPage extends ConsumerWidget {
   final String leagueId;
   final String leagueName;
+  final LeagueModel? league;
 
   const LeagueDetailPage({
     super.key,
     required this.leagueId,
     required this.leagueName,
+    this.league,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final playersAsync = ref.watch(leagueDetailPlayersProvider(leagueId));
+    final isAdmin = ref.watch(isAdminProvider);
+    final activeSessionAsync = ref.watch(activeSessionStreamProvider(leagueId));
+    final activeSessionId = activeSessionAsync.valueOrNull;
     final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(leagueName),
         actions: [
+          if (isAdmin)
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              tooltip: 'Edit League',
+              onPressed: () async {
+                final model = league ??
+                    LeagueModel(
+                      id: leagueId,
+                      name: leagueName,
+                      maxPlayers: 16,
+                      createdAt: DateTime.now(),
+                    );
+                await context.push('/leagues/$leagueId/edit', extra: model);
+              },
+            ),
           IconButton(
             icon: const Icon(Icons.leaderboard_rounded),
             tooltip: 'Leaderboard',
@@ -43,30 +66,45 @@ class LeagueDetailPage extends ConsumerWidget {
               child: Wrap(
                 spacing: 8,
                 children: [
-                  _ActionChip(
-                    icon: Icons.qr_code_rounded,
-                    label: 'Start Session',
-                    color: cs.primary,
-                    onTap: () {
-                      final sessionId = const Uuid().v4();
-                      context.push(
-                        '/leagues/$leagueId/session',
-                        extra: sessionId,
-                      );
-                    },
-                  ),
-                  _ActionChip(
-                    icon: Icons.sports_rounded,
-                    label: 'Live Queue',
-                    color: const Color(0xFF1565C0),
-                    onTap: () {
-                      final sessionId = const Uuid().v4();
-                      context.push(
-                        '/leagues/$leagueId/queue',
-                        extra: sessionId,
-                      );
-                    },
-                  ),
+                  if (isAdmin) ...[
+                    _ActionChip(
+                      icon: activeSessionId != null
+                          ? Icons.sports_rounded
+                          : Icons.qr_code_rounded,
+                      label: activeSessionId != null
+                          ? 'Resume Session'
+                          : 'Start Session',
+                      color: cs.primary,
+                      onTap: () {
+                        final existing =
+                            ref.read(activeSessionProvider(leagueId));
+                        final sessionId = existing ??
+                            activeSessionId ??
+                            const Uuid().v4();
+                        ref
+                            .read(activeSessionProvider(leagueId)
+                                .notifier)
+                            .state = sessionId;
+                        context.push(
+                          '/leagues/$leagueId/session',
+                          extra: sessionId,
+                        );
+                      },
+                    ),
+                  ],
+                  if (activeSessionId != null)
+                    _ActionChip(
+                      icon: Icons.calendar_view_day_rounded,
+                      label: 'View Session',
+                      color: Colors.green.shade700,
+                      onTap: () => context.push(
+                        '/leagues/$leagueId/session/view',
+                        extra: {
+                          'sessionId': activeSessionId,
+                          'leagueName': leagueName,
+                        },
+                      ),
+                    ),
                   _ActionChip(
                     icon: Icons.leaderboard_rounded,
                     label: 'Leaderboard',
@@ -138,35 +176,39 @@ class LeagueDetailPage extends ConsumerWidget {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final players =
-              ref.read(playerListProvider).valueOrNull ?? [];
-          if (players.isEmpty) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                  content: Text('Add players first from the Players tab')),
-            );
-            return;
-          }
-          final selected = await showModalBottomSheet<PlayerModel>(
-            context: context,
-            isScrollControlled: true,
-            shape: const RoundedRectangleBorder(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            builder: (_) => _PlayerPickerSheet(players: players),
-          );
-          if (selected != null) {
-            await ref.read(leagueRepositoryProvider).addPlayerToLeague(
-              leagueId: leagueId,
-              player: selected,
-            );
-            ref.invalidate(leagueDetailPlayersProvider(leagueId));
-          }
-        },
-        child: const Icon(Icons.person_add_rounded),
-      ),
+      floatingActionButton: isAdmin
+          ? FloatingActionButton(
+              onPressed: () async {
+                final players =
+                    ref.read(playerListProvider).valueOrNull ?? [];
+                if (players.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content:
+                            Text('Add players first from the Players tab')),
+                  );
+                  return;
+                }
+                final selected = await showModalBottomSheet<PlayerModel>(
+                  context: context,
+                  isScrollControlled: true,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.vertical(top: Radius.circular(20)),
+                  ),
+                  builder: (_) => _PlayerPickerSheet(players: players),
+                );
+                if (selected != null) {
+                  await ref.read(leagueRepositoryProvider).addPlayerToLeague(
+                    leagueId: leagueId,
+                    player: selected,
+                  );
+                  ref.invalidate(leagueDetailPlayersProvider(leagueId));
+                }
+              },
+              child: const Icon(Icons.person_add_rounded),
+            )
+          : null,
     );
   }
 
@@ -210,9 +252,9 @@ class _ActionChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: color.withOpacity(0.3)),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

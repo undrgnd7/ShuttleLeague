@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../league/presentation/providers/league_provider.dart';
 import '../../../player/data/player_model.dart';
 import '../../../player/presentation/providers/player_provider.dart';
@@ -27,19 +28,20 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
   int _courts = 1;
 
   void _initIfNeeded(List<PlayerModel> players) {
-    if (_selectedIds == null) {
-      _selectedIds = {for (final p in players) p.id};
-    }
+    _selectedIds ??= {for (final p in players) p.id};
   }
 
   void _generate(List<PlayerModel> allPlayers) {
     final selected =
         allPlayers.where((p) => _selectedIds!.contains(p.id)).toList();
     final ratings = {for (final p in selected) p.id: p.rating};
+    final genders = {for (final p in selected) p.id: p.gender.name};
     ref.read(scheduleProvider(widget.sessionId).notifier).generate(
+          leagueId: widget.leagueId,
           playerIds: selected.map((p) => p.id).toList(),
           courts: _courts,
           ratings: ratings,
+          genders: genders,
         );
   }
 
@@ -62,6 +64,10 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         final selected =
             players.where((p) => _selectedIds!.contains(p.id)).toList();
         final maxCourts = (selected.length ~/ 4).clamp(1, 8);
+        final femaleCount = selected
+            .where((p) => p.gender == PlayerGender.female)
+            .length;
+        final hasGenderError = femaleCount == 1;
 
         return Scaffold(
           appBar: AppBar(
@@ -81,6 +87,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                   selectedIds: _selectedIds!,
                   courts: _courts,
                   maxCourts: maxCourts,
+                  hasGenderError: hasGenderError,
                   onTogglePlayer: (id) => setState(() {
                     if (_selectedIds!.contains(id)) {
                       _selectedIds!.remove(id);
@@ -95,7 +102,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                       () => _selectedIds = {for (final p in players) p.id}),
                   onDeselectAll: () => setState(() => _selectedIds = {}),
                   onCourtsChanged: (v) => setState(() => _courts = v),
-                  onGenerate: selected.length >= 4
+                  onGenerate: selected.length >= 4 && !hasGenderError
                       ? () => _generate(players)
                       : null,
                 )
@@ -103,10 +110,11 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                   state: scheduleState,
                   playerMap: playerMap,
                   sessionId: widget.sessionId,
+                  isAdmin: ref.watch(isAdminProvider),
                   onStart: (matchNumber) => ref
                       .read(scheduleProvider(widget.sessionId).notifier)
                       .startMatch(matchNumber),
-                  onComplete: (matchNumber, teamAWon) async {
+                  onComplete: (matchNumber, teamAWon, scoreA, scoreB) async {
                     final match = scheduleState.matches
                         .firstWhere((m) => m.matchNumber == matchNumber);
                     final winners = teamAWon ? match.teamA : match.teamB;
@@ -120,7 +128,30 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                         );
                     ref
                         .read(scheduleProvider(widget.sessionId).notifier)
-                        .completeMatch(matchNumber, teamAWon: teamAWon);
+                        .completeMatch(matchNumber,
+                            teamAWon: teamAWon,
+                            scoreA: scoreA,
+                            scoreB: scoreB);
+                    ref.invalidate(playerListProvider);
+                  },
+                  onEditResult: (matchNumber, newTeamAWon) async {
+                    final match = scheduleState.matches
+                        .firstWhere((m) => m.matchNumber == matchNumber);
+                    // Old winners become losers and vice versa
+                    final oldWinners =
+                        match.teamAWon == true ? match.teamA : match.teamB;
+                    final oldLosers =
+                        match.teamAWon == true ? match.teamB : match.teamA;
+                    await ref
+                        .read(playerRepositoryProvider)
+                        .editMatchResult(
+                          leagueId: widget.leagueId,
+                          oldWinnerIds: oldWinners,
+                          oldLoserIds: oldLosers,
+                        );
+                    ref
+                        .read(scheduleProvider(widget.sessionId).notifier)
+                        .editMatch(matchNumber, teamAWon: newTeamAWon);
                     ref.invalidate(playerListProvider);
                   },
                 ),
@@ -140,6 +171,7 @@ class _SetupView extends StatelessWidget {
   final Set<String> selectedIds;
   final int courts;
   final int maxCourts;
+  final bool hasGenderError;
   final void Function(String id) onTogglePlayer;
   final VoidCallback onSelectAll;
   final VoidCallback onDeselectAll;
@@ -151,6 +183,7 @@ class _SetupView extends StatelessWidget {
     required this.selectedIds,
     required this.courts,
     required this.maxCourts,
+    required this.hasGenderError,
     required this.onTogglePlayer,
     required this.onSelectAll,
     required this.onDeselectAll,
@@ -175,7 +208,7 @@ class _SetupView extends StatelessWidget {
         // ── Player selection header ───────────────────────────────
         Container(
           padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
-          color: cs.primaryContainer.withOpacity(0.5),
+          color: cs.primaryContainer.withValues(alpha: 0.5),
           child: Row(
             children: [
               Expanded(
@@ -192,7 +225,7 @@ class _SetupView extends StatelessWidget {
                       '$n of ${players.length} players selected',
                       style: TextStyle(
                           fontSize: 12,
-                          color: cs.onPrimaryContainer.withOpacity(0.7)),
+                          color: cs.onPrimaryContainer.withValues(alpha: 0.7)),
                     ),
                   ],
                 ),
@@ -291,7 +324,7 @@ class _SetupView extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _LegendChip(label: 'Win  +3 pts', color: const Color(0xFF2E7D32)),
+              const _LegendChip(label: 'Win  +3 pts', color: Color(0xFF2E7D32)),
               const SizedBox(width: 14),
               _LegendChip(label: 'Loss  +1 pt', color: cs.secondary),
               const SizedBox(width: 14),
@@ -332,6 +365,15 @@ class _SetupView extends StatelessWidget {
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Text(
                       'Select at least 4 players to continue.',
+                      style: TextStyle(fontSize: 12, color: cs.error),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                if (hasGenderError)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      'Sessions must have 0 or at least 2 female players.',
                       style: TextStyle(fontSize: 12, color: cs.error),
                       textAlign: TextAlign.center,
                     ),
@@ -466,7 +508,7 @@ class _PlayerCheckTile extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 6),
       child: Material(
         color: isSelected
-            ? cs.primaryContainer.withOpacity(0.35)
+            ? cs.primaryContainer.withValues(alpha: 0.35)
             : cs.surfaceContainerLow,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
@@ -483,7 +525,7 @@ class _PlayerCheckTile extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: isSelected
                         ? avatarColor
-                        : avatarColor.withOpacity(0.35),
+                        : avatarColor.withValues(alpha: 0.35),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   alignment: Alignment.center,
@@ -491,7 +533,7 @@ class _PlayerCheckTile extends StatelessWidget {
                       style: TextStyle(
                           color: isSelected
                               ? Colors.white
-                              : Colors.white.withOpacity(0.6),
+                              : Colors.white.withValues(alpha: 0.6),
                           fontWeight: FontWeight.w700,
                           fontSize: 15)),
                 ),
@@ -507,10 +549,24 @@ class _PlayerCheckTile extends StatelessWidget {
                               color: isSelected
                                   ? cs.onSurface
                                   : cs.onSurfaceVariant)),
-                      Text(
-                          '${player.rating} pts  ·  ${player.wins}W ${player.losses}L',
-                          style: TextStyle(
-                              fontSize: 11, color: cs.onSurfaceVariant)),
+                      Row(
+                        children: [
+                          Icon(
+                            player.gender == PlayerGender.female
+                                ? Icons.female_rounded
+                                : Icons.male_rounded,
+                            size: 14,
+                            color: player.gender == PlayerGender.female
+                                ? Colors.pinkAccent
+                                : cs.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                              '${player.rating} pts  ·  ${player.wins}W ${player.losses}L',
+                              style: TextStyle(
+                                  fontSize: 11, color: cs.onSurfaceVariant)),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -536,15 +592,19 @@ class _ScheduleList extends StatelessWidget {
   final ScheduleState state;
   final Map<String, PlayerModel> playerMap;
   final String sessionId;
+  final bool isAdmin;
   final void Function(int matchNumber) onStart;
-  final void Function(int matchNumber, bool teamAWon) onComplete;
+  final void Function(int matchNumber, bool teamAWon, int scoreA, int scoreB) onComplete;
+  final void Function(int matchNumber, bool newTeamAWon) onEditResult;
 
   const _ScheduleList({
     required this.state,
     required this.playerMap,
     required this.sessionId,
+    required this.isAdmin,
     required this.onStart,
     required this.onComplete,
+    required this.onEditResult,
   });
 
   @override
@@ -640,7 +700,7 @@ class _ScheduleList extends StatelessWidget {
                         ),
                         if (allDone) ...[
                           const SizedBox(width: 6),
-                          Icon(Icons.check_circle_rounded,
+                          const Icon(Icons.check_circle_rounded,
                               size: 13, color: Colors.green),
                         ],
                       ],
@@ -659,9 +719,12 @@ class _ScheduleList extends StatelessWidget {
                         match: match,
                         playerMap: playerMap,
                         isCurrent: isCurrent,
+                        isAdmin: isAdmin,
                         onStart: () => onStart(match.matchNumber),
-                        onComplete: (won) =>
-                            onComplete(match.matchNumber, won),
+                        onComplete: (won, sA, sB) =>
+                            onComplete(match.matchNumber, won, sA, sB),
+                        onEdit: () => onEditResult(
+                            match.matchNumber, match.teamAWon != true),
                       ),
                     );
                   }),
@@ -676,23 +739,122 @@ class _ScheduleList extends StatelessWidget {
   }
 }
 
-class _MatchCard extends StatelessWidget {
+class _MatchCard extends StatefulWidget {
   final ScheduledMatch match;
   final Map<String, PlayerModel> playerMap;
   final bool isCurrent;
+  final bool isAdmin;
   final VoidCallback onStart;
-  final void Function(bool teamAWon) onComplete;
+  final void Function(bool teamAWon, int scoreA, int scoreB) onComplete;
+  final VoidCallback onEdit;
 
   const _MatchCard({
     required this.match,
     required this.playerMap,
     required this.isCurrent,
+    required this.isAdmin,
     required this.onStart,
     required this.onComplete,
+    required this.onEdit,
   });
 
   @override
+  State<_MatchCard> createState() => _MatchCardState();
+}
+
+class _MatchCardState extends State<_MatchCard> {
+  Future<void> _recordResult(bool teamAWon) async {
+    final scoreACtrl = TextEditingController();
+    final scoreBCtrl = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final result = await showDialog<(int, int)>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(
+          teamAWon ? 'Team A Won' : 'Team B Won',
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Enter the final score (optional)',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: scoreACtrl,
+                      keyboardType: TextInputType.number,
+                      textAlign: TextAlign.center,
+                      decoration: const InputDecoration(
+                        labelText: 'Team A',
+                        hintText: '0',
+                      ),
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12),
+                    child: Text('–',
+                        style: TextStyle(
+                            fontSize: 20, fontWeight: FontWeight.w700)),
+                  ),
+                  Expanded(
+                    child: TextFormField(
+                      controller: scoreBCtrl,
+                      keyboardType: TextInputType.number,
+                      textAlign: TextAlign.center,
+                      decoration: const InputDecoration(
+                        labelText: 'Team B',
+                        hintText: '0',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final a = int.tryParse(scoreACtrl.text) ?? 0;
+              final b = int.tryParse(scoreBCtrl.text) ?? 0;
+              Navigator.pop(ctx, (a, b));
+            },
+            child: const Text('Save Result'),
+          ),
+        ],
+      ),
+    );
+
+    scoreACtrl.dispose();
+    scoreBCtrl.dispose();
+
+    if (result != null && mounted) {
+      widget.onComplete(teamAWon, result.$1, result.$2);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final match = widget.match;
+    final playerMap = widget.playerMap;
+    final isCurrent = widget.isCurrent;
+    final isAdmin = widget.isAdmin;
     final cs = Theme.of(context).colorScheme;
 
     Color borderColor;
@@ -715,9 +877,9 @@ class _MatchCard extends StatelessWidget {
         break;
       default:
         borderColor =
-            isCurrent ? cs.primary.withOpacity(0.5) : cs.outlineVariant;
+            isCurrent ? cs.primary.withValues(alpha: 0.5) : cs.outlineVariant;
         headerColor = isCurrent
-            ? cs.primaryContainer.withOpacity(0.4)
+            ? cs.primaryContainer.withValues(alpha: 0.4)
             : cs.surfaceContainerLow;
         statusLabel = 'Upcoming';
         statusIcon = Icons.schedule_rounded;
@@ -796,26 +958,46 @@ class _MatchCard extends StatelessWidget {
           ),
 
           // Actions
-          if (match.isScheduled && isCurrent)
+          if (match.isScheduled && isAdmin)
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
               child: SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
-                  onPressed: onStart,
+                  onPressed: widget.onStart,
                   icon: const Icon(Icons.play_arrow_rounded),
                   label: const Text('Start Match'),
                 ),
               ),
             )
-          else if (match.isInProgress)
+          else if (match.isInProgress && !isAdmin)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+              child: Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: cs.primary,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text('In progress',
+                      style: TextStyle(
+                          fontSize: 12, color: cs.primary, fontWeight: FontWeight.w600)),
+                ],
+              ),
+            )
+          else if (match.isInProgress && isAdmin)
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
               child: Row(
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => onComplete(true),
+                      onPressed: () => _recordResult(true),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: cs.primary,
                         side: BorderSide(color: cs.primary),
@@ -826,7 +1008,7 @@ class _MatchCard extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => onComplete(false),
+                      onPressed: () => _recordResult(false),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: const Color(0xFF1565C0),
                         side: const BorderSide(color: Color(0xFF1565C0)),
@@ -842,12 +1024,64 @@ class _MatchCard extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
               child: Row(
                 children: [
-                  Icon(Icons.check_circle_rounded,
+                  const Icon(Icons.check_circle_rounded,
                       size: 14, color: Colors.green),
                   const SizedBox(width: 4),
-                  Text('Completed',
+                  if (match.scoreA != null && match.scoreB != null) ...[
+                    Text(
+                      '${match.scoreA} – ${match.scoreB}',
                       style: TextStyle(
-                          fontSize: 12, color: Colors.green.shade700)),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.green.shade700),
+                    ),
+                  ] else ...[
+                    Text('Completed',
+                        style: TextStyle(
+                            fontSize: 12, color: Colors.green.shade700)),
+                  ],
+                  const Spacer(),
+                  if (isAdmin)
+                    InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () async {
+                        final cs = Theme.of(context).colorScheme;
+                        final newWinner = match.teamAWon == true
+                            ? 'Team B'
+                            : 'Team A';
+                        final confirmed = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Correct Result?'),
+                            content: Text(
+                                'Change result so $newWinner won instead?'),
+                            actions: [
+                              TextButton(
+                                onPressed: () =>
+                                    Navigator.pop(ctx, false),
+                                child: const Text('Cancel'),
+                              ),
+                              FilledButton(
+                                onPressed: () =>
+                                    Navigator.pop(ctx, true),
+                                style: FilledButton.styleFrom(
+                                    backgroundColor: cs.error),
+                                child: const Text('Correct'),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirmed == true) widget.onEdit();
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: Icon(Icons.edit_outlined,
+                            size: 16,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -893,6 +1127,7 @@ class _TeamColumn extends StatelessWidget {
         ...playerIds.map((id) {
           final p = playerMap[id];
           final name = p?.name ?? id.substring(0, 6);
+          final isFemale = p?.gender == PlayerGender.female;
           return Padding(
             padding: const EdgeInsets.only(bottom: 4),
             child: Row(
@@ -902,7 +1137,7 @@ class _TeamColumn extends StatelessWidget {
                   width: 26,
                   height: 26,
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.15),
+                    color: color.withValues(alpha: 0.15),
                     shape: BoxShape.circle,
                   ),
                   alignment: Alignment.center,
@@ -919,6 +1154,15 @@ class _TeamColumn extends StatelessWidget {
                   name.split(' ').first,
                   style: const TextStyle(
                       fontSize: 12, fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(width: 3),
+                Text(
+                  isFemale ? '♀' : '♂',
+                  style: TextStyle(
+                      fontSize: 10,
+                      color: isFemale
+                          ? Colors.pink.shade400
+                          : Colors.blue.shade400),
                 ),
               ],
             ),

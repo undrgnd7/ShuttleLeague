@@ -112,6 +112,7 @@ Avoid repeated teammates
 Balance skill levels across teams
 Prioritize players waiting longest
 Keep match count equalized
+Gender balance: each match must include either 0 female players or at least 2 female players (never exactly 1)
 Rotation Rules:
 Early players get priority rotation
 Late players inserted into next available match
@@ -166,6 +167,25 @@ Focus on zero-admin experience during play
 “Less organizing. More playing.”
 
 ShuttleLeague removes friction so players can focus entirely on the game while the system handles fairness, structure, and tracking.
+
+🐞 Gender Feature — Resolution Summary (2026-07-02)
+
+1. Scheduling — gender balance rule (0 or ≥2 female players per court, split 1F+1M per team)
+   - lib/features/schedule/domain/schedule_generator.dart: rule was already implemented in _pickGroup() (lines 152-171) and fully wired end-to-end — schedule_page.dart builds a genders map from selected PlayerModels and passes it through schedule_provider.dart into ScheduleGenerator.generate(). No change needed here.
+   - lib/features/match/domain/match_generator.dart: previously had NO gender awareness (plain ELO snake-draft). Added an optional `genders` param to generateDoubles() that mirrors the schedule generator's rule — builds 2F+2M mixed matches (1F+1M per team) first, sits out the lowest-rated female if the female count is odd, then snake-drafts any remaining males into standard matches.
+   - lib/features/match/data/match_repository_impl.dart: MatchRepositoryImpl now takes a PlayerRepository dependency, fetches player genders via getPlayers() inside generateMatches(), and passes them into MatchGenerator.generateDoubles(). Wired via lib/features/match/presentation/providers/match_provider.dart (now reads playerRepositoryProvider too).
+   - Along the way, found and fixed several pre-existing broken relative imports in the match module (match_repository_impl.dart, match_repository.dart) that meant the entire match feature was not compiling before this session — unrelated to the gender work but fixed since it was in the same files.
+
+2. Player Selection (Session Start) — lib/features/schedule/presentation/pages/schedule_page.dart, _PlayerCheckTile (~line 555)
+   - Was: gender shown only as a plain text glyph (♀ F / ♂ M) buried inside a stats string — didn't visually register as an icon.
+   - Fixed: now rendered as a proper Icon (Icons.female_rounded / Icons.male_rounded, pink for female) next to the rating/win-loss stats.
+
+3. Player Page — gender icon added next to existing skill and win-rate info
+   - lib/features/player/presentation/pages/player_profile_page.dart: gender icon added next to the skill badge in the header, plus a new "Gender" row in the Player Info card.
+   - lib/features/player/presentation/pages/player_list_page.dart: gender icon added to the compact list row next to the skill/win-rate line.
+   - Player model already had the field: lib/features/player/data/player_model.dart — enum PlayerGender { male, female }.
+
+Verification: `flutter analyze` run on the full project before and after — no new errors introduced; only pre-existing, unrelated errors remain (leaderboard EloEngine, league updateLeague, test/widget_test.dart), none touching match/schedule/player modules.
 
 📄 License
 

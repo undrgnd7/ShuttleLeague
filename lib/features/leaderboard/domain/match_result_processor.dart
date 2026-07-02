@@ -1,4 +1,5 @@
-import '../../../player/data/player_model.dart';
+import '../../player/data/player_model.dart';
+import 'elo_engine.dart';
 
 class MatchResultProcessor {
   /// Update ratings after a match
@@ -8,7 +9,7 @@ class MatchResultProcessor {
     required bool teamAWon,
   }) {
     for (final p in teamA) {
-      final newRating = EloEngine.calculateNewRating(
+      EloEngine.calculateNewRating(
         rating: p.rating,
         opponentRating: _avg(teamB),
         won: teamAWon,
@@ -18,7 +19,7 @@ class MatchResultProcessor {
     }
 
     for (final p in teamB) {
-      final newRating = EloEngine.calculateNewRating(
+      EloEngine.calculateNewRating(
         rating: p.rating,
         opponentRating: _avg(teamA),
         won: !teamAWon,

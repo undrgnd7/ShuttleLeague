@@ -39,7 +39,7 @@ class AppTheme {
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor:
             brightness == Brightness.light ? Colors.white : cs.surface,
-        indicatorColor: _seed.withOpacity(0.15),
+        indicatorColor: _seed.withValues(alpha: 0.15),
         labelTextStyle: WidgetStateProperty.all(
           const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
         ),

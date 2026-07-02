@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../providers/auth_provider.dart';
@@ -55,7 +56,7 @@ class _LoginPageState extends State<LoginPage>
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
+                      color: Colors.white.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: const Icon(Icons.sports_tennis_rounded,
@@ -71,7 +72,7 @@ class _LoginPageState extends State<LoginPage>
                   const SizedBox(height: 4),
                   Text('Less organizing. More playing.',
                       style: TextStyle(
-                          color: Colors.white.withOpacity(0.75),
+                          color: Colors.white.withValues(alpha: 0.75),
                           fontSize: 14)),
                 ],
               ),
@@ -179,12 +180,95 @@ class _SignInFormState extends State<_SignInForm> {
   final _email = TextEditingController();
   final _pass = TextEditingController();
   bool _obscure = true;
+  bool _sendingReset = false;
 
   @override
   void dispose() {
     _email.dispose();
     _pass.dispose();
     super.dispose();
+  }
+
+  Future<void> _showForgotPassword() async {
+    final emailCtrl = TextEditingController(text: _email.text.trim());
+    final formKey = GlobalKey<FormState>();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Reset Password'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "We'll send a reset link to your email address.",
+                style: TextStyle(
+                    fontSize: 13,
+                    color: Theme.of(ctx).colorScheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: emailCtrl,
+                keyboardType: TextInputType.emailAddress,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'Email address',
+                  prefixIcon: Icon(Icons.email_outlined),
+                ),
+                validator: (v) =>
+                    v == null || !v.contains('@') ? 'Enter a valid email' : null,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (formKey.currentState!.validate()) Navigator.pop(ctx, true);
+            },
+            child: const Text('Send Reset Email'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) {
+      emailCtrl.dispose();
+      return;
+    }
+
+    setState(() => _sendingReset = true);
+    try {
+      await AuthService.sendPasswordResetByEmail(emailCtrl.text);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'Reset link sent to ${emailCtrl.text.trim()}. Check your spam folder if you don\'t see it.'),
+            duration: const Duration(seconds: 6),
+          ),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.message ?? 'Failed to send reset email'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } finally {
+      emailCtrl.dispose();
+      if (mounted) setState(() => _sendingReset = false);
+    }
   }
 
   @override
@@ -222,7 +306,20 @@ class _SignInFormState extends State<_SignInForm> {
             validator: (v) =>
                 v == null || v.length < 6 ? 'Min 6 characters' : null,
           ),
-          const SizedBox(height: 28),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: _sendingReset ? null : _showForgotPassword,
+              child: _sendingReset
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Forgot password?'),
+            ),
+          ),
+          const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,
             child: FilledButton(

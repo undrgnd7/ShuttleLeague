@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../schedule/presentation/providers/schedule_provider.dart';
+import '../../data/session_repository.dart';
 
-class SessionDashboard extends ConsumerWidget {
+class SessionDashboard extends ConsumerStatefulWidget {
   final String sessionId;
   final String leagueId;
 
@@ -15,9 +16,62 @@ class SessionDashboard extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SessionDashboard> createState() => _SessionDashboardState();
+}
+
+class _SessionDashboardState extends ConsumerState<SessionDashboard> {
+  bool _ending = false;
+
+  Future<void> _endSession() async {
     final cs = Theme.of(context).colorScheme;
-    final isAdmin = ref.watch(isAdminProvider);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('End Session?'),
+        content: const Text(
+            'This will close the active session and remove it from the league. '
+            'Match results already recorded are kept.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: cs.error),
+            child: const Text('End Session'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() => _ending = true);
+    try {
+      await SessionRepository()
+          .endSession(widget.leagueId, widget.sessionId);
+      // Clear in-memory active session
+      ref.read(activeSessionProvider(widget.leagueId).notifier).state = null;
+      if (mounted) context.pop();
+    } on Exception catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _ending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final sessionId = widget.sessionId;
+    final leagueId = widget.leagueId;
 
     return Scaffold(
       appBar: AppBar(
@@ -46,7 +100,7 @@ class SessionDashboard extends ConsumerWidget {
                     Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.15),
+                        color: Colors.green.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(Icons.circle,
@@ -111,23 +165,38 @@ class SessionDashboard extends ConsumerWidget {
             ),
             const SizedBox(height: 10),
             _ToolButton(
-              icon: Icons.sports_rounded,
-              label: 'Live Queue',
-              subtitle: 'Manage court assignments and match queue',
-              color: const Color(0xFF1565C0),
-              onTap: () => context.push(
-                '/leagues/$leagueId/queue',
-                extra: sessionId,
-              ),
-            ),
-            const SizedBox(height: 10),
-            _ToolButton(
               icon: Icons.leaderboard_rounded,
               label: 'Leaderboard',
               subtitle: 'View player rankings for this league',
               color: const Color(0xFFF9A825),
               onTap: () =>
                   context.push('/leagues/$leagueId/leaderboard'),
+            ),
+
+            const SizedBox(height: 28),
+
+            // ── End session ───────────────────────────────────────────
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _ending ? null : _endSession,
+                icon: _ending
+                    ? SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: cs.error),
+                      )
+                    : Icon(Icons.stop_circle_outlined, color: cs.error),
+                label: Text(
+                  _ending ? 'Ending…' : 'End Session',
+                  style: TextStyle(color: cs.error),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: cs.error.withValues(alpha: 0.5)),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
             ),
           ],
         ),
@@ -160,7 +229,7 @@ class _ToolButton extends StatelessWidget {
           width: 44,
           height: 44,
           decoration: BoxDecoration(
-            color: color.withOpacity(0.12),
+            color: color.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(icon, color: color, size: 22),

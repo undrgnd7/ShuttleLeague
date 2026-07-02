@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../domain/attendance_repository.dart';
 import '../providers/attendance_provider.dart';
 
 class CheckInPage extends ConsumerWidget {
@@ -32,6 +31,7 @@ class CheckInPage extends ConsumerWidget {
               playerId: playerId,
             );
 
+            if (!context.mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text("Checked in successfully")),
             );

@@ -35,5 +35,7 @@ class LeagueController {
     await _repo.createLeague(league);
   }
 
+  Future<void> updateLeague(LeagueModel league) => _repo.updateLeague(league);
+
   Future<void> deleteLeague(String id) => _repo.deleteLeague(id);
 }

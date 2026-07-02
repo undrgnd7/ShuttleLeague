@@ -1,3 +1,5 @@
+enum PlayerGender { male, female }
+
 class PlayerModel {
   final String id;
   final String name;
@@ -6,6 +8,7 @@ class PlayerModel {
   final int wins;
   final int losses;
   final DateTime createdAt;
+  final PlayerGender gender;
 
   PlayerModel({
     required this.id,
@@ -15,5 +18,6 @@ class PlayerModel {
     this.wins = 0,
     this.losses = 0,
     required this.createdAt,
+    this.gender = PlayerGender.male,
   });
 }

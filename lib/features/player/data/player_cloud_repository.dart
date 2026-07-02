@@ -17,6 +17,7 @@ class PlayerCloudRepository implements PlayerRepository {
     await _players.doc(player.id).set({
       'name': player.name,
       'skillLevel': player.skillLevel,
+      'gender': player.gender.name,
       'rating': player.rating,
       'wins': player.wins,
       'losses': player.losses,
@@ -41,6 +42,15 @@ class PlayerCloudRepository implements PlayerRepository {
     final doc = await _players.doc(id).get();
     if (!doc.exists) return null;
     return _docToModel(doc);
+  }
+
+  @override
+  Future<void> updatePlayer(PlayerModel player) async {
+    await _players.doc(player.id).update({
+      'name': player.name,
+      'skillLevel': player.skillLevel,
+      'gender': player.gender.name,
+    });
   }
 
   @override
@@ -126,12 +136,72 @@ class PlayerCloudRepository implements PlayerRepository {
     });
   }
 
+  @override
+  Future<void> editMatchResult({
+    required String leagueId,
+    required List<String> oldWinnerIds,
+    required List<String> oldLoserIds,
+  }) async {
+    final allIds = [...oldWinnerIds, ...oldLoserIds];
+    final globalRefs = allIds.map((id) => _players.doc(id)).toList();
+    final leagueRefs = allIds
+        .map((id) => _db
+            .collection('leagues')
+            .doc(leagueId)
+            .collection('players')
+            .doc(id))
+        .toList();
+
+    // Win=+3, Loss=+1. To flip result:
+    //   old winner (now loser): −3+1 = −2 pts, −1 win, +1 loss
+    //   old loser  (now winner): −1+3 = +2 pts, +1 win, −1 loss
+    const winPts = EloEngine.pointsForWin;
+    const lossPts = EloEngine.pointsForLoss;
+
+    await _db.runTransaction((tx) async {
+      final globalSnaps = <DocumentSnapshot<Map<String, dynamic>>>[];
+      for (final ref in globalRefs) {
+        globalSnaps.add(await tx.get(ref));
+      }
+      final leagueSnaps = <DocumentSnapshot<Map<String, dynamic>>>[];
+      for (final ref in leagueRefs) {
+        leagueSnaps.add(await tx.get(ref));
+      }
+
+      for (int i = 0; i < allIds.length; i++) {
+        final wasWinner = oldWinnerIds.contains(allIds[i]);
+        final ptsDelta = wasWinner ? (-winPts + lossPts) : (-lossPts + winPts);
+        final winsDelta = wasWinner ? -1 : 1;
+        final lossesDelta = wasWinner ? 1 : -1;
+
+        if (globalSnaps[i].exists) {
+          final d = globalSnaps[i].data()!;
+          tx.update(globalRefs[i], {
+            'rating': ((d['rating'] as num?)?.toInt() ?? 0) + ptsDelta,
+            'wins': ((d['wins'] as num?)?.toInt() ?? 0) + winsDelta,
+            'losses': ((d['losses'] as num?)?.toInt() ?? 0) + lossesDelta,
+          });
+        }
+
+        if (leagueSnaps[i].exists) {
+          final ld = leagueSnaps[i].data()!;
+          tx.update(leagueRefs[i], {
+            'rating': ((ld['rating'] as num?)?.toInt() ?? 0) + ptsDelta,
+            'wins': ((ld['wins'] as num?)?.toInt() ?? 0) + winsDelta,
+            'losses': ((ld['losses'] as num?)?.toInt() ?? 0) + lossesDelta,
+          });
+        }
+      }
+    });
+  }
+
   PlayerModel _docToModel(DocumentSnapshot<Map<String, dynamic>> doc) {
     final d = doc.data()!;
     return PlayerModel(
       id: doc.id,
       name: d['name'] as String,
       skillLevel: (d['skillLevel'] as num?)?.toInt() ?? 1,
+      gender: d['gender'] == 'female' ? PlayerGender.female : PlayerGender.male,
       rating: (d['rating'] as num?)?.toInt() ?? 0,
       wins: (d['wins'] as num?)?.toInt() ?? 0,
       losses: (d['losses'] as num?)?.toInt() ?? 0,

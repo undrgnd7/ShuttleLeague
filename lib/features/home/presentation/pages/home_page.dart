@@ -9,6 +9,7 @@ import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../league/presentation/pages/league_list_page.dart';
 import '../../../player/presentation/providers/player_provider.dart';
 
+
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
 
@@ -16,6 +17,7 @@ class HomePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final leaguesAsync = ref.watch(leagueListProvider);
     final playersAsync = ref.watch(playerListProvider);
+    final isAdmin = ref.watch(isAdminProvider);
     final cs = Theme.of(context).colorScheme;
 
     final playerCount = playersAsync.valueOrNull?.length ?? 0;
@@ -29,11 +31,10 @@ class HomePage extends ConsumerWidget {
             expandedHeight: 180,
             actions: [
               IconButton(
-                icon: const Icon(Icons.logout_rounded, color: Colors.white),
-                tooltip: 'Sign Out',
-                onPressed: () async {
-                  await AuthService.signOut();
-                },
+                icon: const Icon(Icons.account_circle_outlined,
+                    color: Colors.white),
+                tooltip: 'My Account',
+                onPressed: () => context.push('/account'),
               ),
             ],
             flexibleSpace: FlexibleSpaceBar(
@@ -54,7 +55,7 @@ class HomePage extends ConsumerWidget {
                   Text(
                     'Badminton League Manager',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.75),
+                      color: Colors.white.withValues(alpha: 0.75),
                       fontSize: 11,
                       fontWeight: FontWeight.w400,
                     ),
@@ -85,7 +86,7 @@ class HomePage extends ConsumerWidget {
                       color: const Color(0xFF1565C0),
                     ),
                     const SizedBox(width: 12),
-                    _StatCard(
+                    const _StatCard(
                       label: 'Win = +3pts',
                       value: 'Points',
                       icon: Icons.bar_chart_rounded,
@@ -111,44 +112,53 @@ class HomePage extends ConsumerWidget {
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
                   childAspectRatio: 1.6,
-                  children: [
-                    _ActionTile(
-                      icon: Icons.person_add_rounded,
-                      label: 'Add Player',
-                      color: cs.primary,
-                      onTap: () => context.push('/players/create'),
-                    ),
-                    _ActionTile(
-                      icon: Icons.add_circle_rounded,
-                      label: 'Create League',
-                      color: const Color(0xFF1565C0),
-                      onTap: () => context.push('/leagues/create'),
-                    ),
-                    _ActionTile(
-                      icon: Icons.qr_code_scanner_rounded,
-                      label: 'Scan QR',
-                      color: const Color(0xFF00695C),
-                      onTap: () => context.go('/scan'),
-                    ),
-                    _ActionTile(
-                      icon: Icons.leaderboard_rounded,
-                      label: 'Leaderboard',
-                      color: AppTheme.ratingAmber,
-                      onTap: () {
-                        final leagues = leaguesAsync.valueOrNull ?? [];
-                        if (leagues.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content:
-                                    Text('No leagues yet — create one first')),
-                          );
-                          return;
-                        }
-                        context.push(
-                            '/leagues/${leagues.first.id}/leaderboard');
-                      },
-                    ),
-                  ],
+                  children: isAdmin
+                      ? [
+                          _ActionTile(
+                            icon: Icons.person_add_rounded,
+                            label: 'Add Player',
+                            color: cs.primary,
+                            onTap: () => context.push('/players/create'),
+                          ),
+                          _ActionTile(
+                            icon: Icons.add_circle_rounded,
+                            label: 'Create League',
+                            color: const Color(0xFF1565C0),
+                            onTap: () => context.push('/leagues/create'),
+                          ),
+                          _ActionTile(
+                            icon: Icons.qr_code_scanner_rounded,
+                            label: 'Scan QR',
+                            color: const Color(0xFF00695C),
+                            onTap: () => context.go('/scan'),
+                          ),
+                          _ActionTile(
+                            icon: Icons.leaderboard_rounded,
+                            label: 'Leaderboard',
+                            color: AppTheme.ratingAmber,
+                            onTap: () => context.push('/leaderboard'),
+                          ),
+                          _ActionTile(
+                            icon: Icons.manage_accounts_rounded,
+                            label: 'Manage Users',
+                            color: const Color(0xFF6A1B9A),
+                            onTap: () => context.push('/admin/users'),
+                          ),
+                        ]
+                      : [
+                          _ActionTile(
+                            icon: Icons.emoji_events_rounded,
+                            label: 'My Leagues',
+                            color: const Color(0xFF1565C0),
+                            onTap: () => context.go('/leagues'),
+                          ),
+                          _ActionTile(
+                            icon: Icons.leaderboard_rounded,
+                            label: 'Leaderboard',
+                            color: AppTheme.ratingAmber,
+                            onTap: () => context.push('/leaderboard'),
+                          ),
+                        ],
                 ),
                 const SizedBox(height: 28),
 
@@ -189,7 +199,7 @@ class HomePage extends ConsumerWidget {
                                   name: l.name,
                                   maxPlayers: l.maxPlayers,
                                   onTap: () =>
-                                      context.push('/leagues/${l.id}'),
+                                      context.push('/leagues/${l.id}', extra: l),
                                 ),
                               ))
                           .toList(),
@@ -241,7 +251,7 @@ class _CourtPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.white.withOpacity(0.12)
+      ..color = Colors.white.withValues(alpha: 0.12)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2;
 
@@ -295,7 +305,7 @@ class _CourtPainter extends CustomPainter {
     // Simplified: a small circle + radiating lines (feathers)
     canvas.drawCircle(center, r * 0.3, paint);
     final featherPaint = Paint()
-      ..color = Colors.white.withOpacity(0.1)
+      ..color = Colors.white.withValues(alpha: 0.1)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
     for (int i = 0; i < 8; i++) {
@@ -341,7 +351,7 @@ class _StatCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(14),
         ),
         child: Column(
@@ -363,7 +373,7 @@ class _StatCard extends StatelessWidget {
               label,
               style: TextStyle(
                 fontSize: 11,
-                color: color.withOpacity(0.8),
+                color: color.withValues(alpha: 0.8),
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -390,7 +400,7 @@ class _ActionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: color.withOpacity(0.08),
+      color: color.withValues(alpha: 0.08),
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: onTap,
@@ -402,7 +412,7 @@ class _ActionTile extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.15),
+                  color: color.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(icon, color: color, size: 20),

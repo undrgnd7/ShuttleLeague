@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 
 import '../../../../app/theme.dart';
+import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../data/player_model.dart';
 import '../providers/player_provider.dart';
 
@@ -50,8 +51,9 @@ class _PlayerListPageState extends ConsumerState<PlayerListPage> {
   }
 
   @override
-  Widget build(BuildContext context, ) {
+  Widget build(BuildContext context) {
     final playersAsync = ref.watch(playerListProvider);
+    final isAdmin = ref.watch(isAdminProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -109,29 +111,44 @@ class _PlayerListPageState extends ConsumerState<PlayerListPage> {
                 final player = players[i];
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 8),
-                  child: Dismissible(
-                    key: ValueKey(player.id),
-                    direction: DismissDirection.endToStart,
-                    confirmDismiss: (_) async {
-                      await _confirmDelete(player);
-                      return false;
-                    },
-                    background: Container(
-                      alignment: Alignment.centerRight,
-                      padding: const EdgeInsets.only(right: 20),
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade100,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: const Icon(Icons.delete_rounded,
-                          color: Colors.red, size: 24),
-                    ),
-                    child: _PlayerCard(
-                      player: player,
-                      onTap: () => context.push('/players/${player.id}'),
-                      onDelete: () => _confirmDelete(player),
-                    ),
-                  ),
+                  child: isAdmin
+                      ? Dismissible(
+                          key: ValueKey(player.id),
+                          direction: DismissDirection.endToStart,
+                          confirmDismiss: (_) async {
+                            await _confirmDelete(player);
+                            return false;
+                          },
+                          background: Container(
+                            alignment: Alignment.centerRight,
+                            padding: const EdgeInsets.only(right: 20),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade100,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: const Icon(Icons.delete_rounded,
+                                color: Colors.red, size: 24),
+                          ),
+                          child: _PlayerCard(
+                            player: player,
+                            onTap: () => context.push('/players/${player.id}'),
+                            isAdmin: isAdmin,
+                            onEdit: () async {
+                              final changed = await context.push<bool>(
+                                  '/players/${player.id}/edit',
+                                  extra: player);
+                              if (changed == true) ref.invalidate(playerListProvider);
+                            },
+                            onDelete: () => _confirmDelete(player),
+                          ),
+                        )
+                      : _PlayerCard(
+                          player: player,
+                          onTap: () => context.push('/players/${player.id}'),
+                          isAdmin: isAdmin,
+                          onEdit: () {},
+                          onDelete: () {},
+                        ),
                 );
               },
             ),
@@ -140,14 +157,16 @@ class _PlayerListPageState extends ConsumerState<PlayerListPage> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          await context.push('/players/create');
-          ref.invalidate(playerListProvider);
-        },
-        icon: const Icon(Icons.person_add_rounded),
-        label: const Text('Add Player'),
-      ),
+      floatingActionButton: isAdmin
+          ? FloatingActionButton.extended(
+              onPressed: () async {
+                await context.push('/players/create');
+                ref.invalidate(playerListProvider);
+              },
+              icon: const Icon(Icons.person_add_rounded),
+              label: const Text('Add Player'),
+            )
+          : null,
     );
   }
 
@@ -190,8 +209,16 @@ class _PlayerListPageState extends ConsumerState<PlayerListPage> {
 class _PlayerCard extends StatelessWidget {
   final PlayerModel player;
   final VoidCallback onTap;
+  final VoidCallback onEdit;
   final VoidCallback onDelete;
-  const _PlayerCard({required this.player, required this.onTap, required this.onDelete});
+  final bool isAdmin;
+  const _PlayerCard({
+    required this.player,
+    required this.onTap,
+    required this.onEdit,
+    required this.onDelete,
+    required this.isAdmin,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -242,6 +269,16 @@ class _PlayerCard extends StatelessWidget {
                     const SizedBox(height: 2),
                     Row(
                       children: [
+                        Icon(
+                          player.gender == PlayerGender.female
+                              ? Icons.female_rounded
+                              : Icons.male_rounded,
+                          size: 13,
+                          color: player.gender == PlayerGender.female
+                              ? Colors.pinkAccent
+                              : cs.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 6),
                         Icon(Icons.sports_tennis,
                             size: 12, color: cs.onSurfaceVariant),
                         const SizedBox(width: 3),
@@ -296,15 +333,25 @@ class _PlayerCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 6),
-              IconButton(
-                onPressed: onDelete,
-                icon: const Icon(Icons.delete_outline_rounded),
-                color: cs.error,
-                iconSize: 20,
-                visualDensity: VisualDensity.compact,
-                tooltip: 'Remove',
-              ),
+              if (isAdmin) ...[
+                const SizedBox(width: 2),
+                IconButton(
+                  onPressed: onEdit,
+                  icon: const Icon(Icons.edit_outlined),
+                  color: cs.primary,
+                  iconSize: 20,
+                  visualDensity: VisualDensity.compact,
+                  tooltip: 'Edit',
+                ),
+                IconButton(
+                  onPressed: onDelete,
+                  icon: const Icon(Icons.delete_outline_rounded),
+                  color: cs.error,
+                  iconSize: 20,
+                  visualDensity: VisualDensity.compact,
+                  tooltip: 'Remove',
+                ),
+              ],
             ],
           ),
         ),

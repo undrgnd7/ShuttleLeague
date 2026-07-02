@@ -62,7 +62,7 @@ class _ProfileView extends StatelessWidget {
                     end: Alignment.bottomCenter,
                     colors: [
                       avatarColor,
-                      avatarColor.withOpacity(0.6),
+                      avatarColor.withValues(alpha: 0.6),
                     ],
                   ),
                 ),
@@ -75,10 +75,10 @@ class _ProfileView extends StatelessWidget {
                         width: 80,
                         height: 80,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.25),
+                          color: Colors.white.withValues(alpha: 0.25),
                           borderRadius: BorderRadius.circular(22),
                           border: Border.all(
-                              color: Colors.white.withOpacity(0.4), width: 2),
+                              color: Colors.white.withValues(alpha: 0.4), width: 2),
                         ),
                         alignment: Alignment.center,
                         child: Text(initials,
@@ -94,7 +94,22 @@ class _ProfileView extends StatelessWidget {
                               fontWeight: FontWeight.w800,
                               fontSize: 22)),
                       const SizedBox(height: 4),
-                      _SkillBadge(level: player.skillLevel),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _SkillBadge(level: player.skillLevel),
+                          const SizedBox(width: 6),
+                          Icon(
+                            player.gender == PlayerGender.female
+                                ? Icons.female_rounded
+                                : Icons.male_rounded,
+                            size: 18,
+                            color: player.gender == PlayerGender.female
+                                ? Colors.pinkAccent
+                                : Colors.white.withValues(alpha: 0.85),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -146,8 +161,8 @@ class _ProfileView extends StatelessWidget {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text('Win Rate',
-                                  style: const TextStyle(
+                              const Text('Win Rate',
+                                  style: TextStyle(
                                       fontWeight: FontWeight.w600,
                                       fontSize: 14)),
                               Text(
@@ -185,14 +200,24 @@ class _ProfileView extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Player Info',
-                            style: const TextStyle(
+                        const Text('Player Info',
+                            style: TextStyle(
                                 fontWeight: FontWeight.w700, fontSize: 14)),
                         const SizedBox(height: 12),
                         _InfoRow(
                           icon: Icons.sports_tennis_rounded,
                           label: 'Skill Level',
                           value: _skillLabel(player.skillLevel),
+                        ),
+                        const SizedBox(height: 8),
+                        _InfoRow(
+                          icon: player.gender == PlayerGender.female
+                              ? Icons.female_rounded
+                              : Icons.male_rounded,
+                          label: 'Gender',
+                          value: player.gender == PlayerGender.female
+                              ? 'Female'
+                              : 'Male',
                         ),
                         const SizedBox(height: 8),
                         _InfoRow(
@@ -286,7 +311,7 @@ class _RatingHero extends StatelessWidget {
                   _ratingLabel(player.rating),
                   style: TextStyle(
                       fontSize: 12,
-                      color: AppTheme.ratingAmber.withOpacity(0.7),
+                      color: AppTheme.ratingAmber.withValues(alpha: 0.7),
                       fontWeight: FontWeight.w500),
                 ),
               ],
@@ -296,7 +321,7 @@ class _RatingHero extends StatelessWidget {
               width: 64,
               height: 64,
               decoration: BoxDecoration(
-                color: AppTheme.ratingAmber.withOpacity(0.12),
+                color: AppTheme.ratingAmber.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(18),
               ),
               child: const Icon(Icons.emoji_events_rounded,
@@ -402,7 +427,7 @@ class _SkillBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.2),
+        color: Colors.white.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(

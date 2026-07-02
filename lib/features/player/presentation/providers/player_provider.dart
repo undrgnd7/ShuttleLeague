@@ -25,15 +25,22 @@ class PlayerController {
   final PlayerRepository _repo;
   PlayerController(this._repo);
 
-  Future<void> createPlayer(String name, {int skillLevel = 3}) async {
+  Future<void> createPlayer(
+    String name, {
+    int skillLevel = 3,
+    PlayerGender gender = PlayerGender.male,
+  }) async {
     final player = PlayerModel(
       id: const Uuid().v4(),
       name: name.trim(),
       skillLevel: skillLevel,
+      gender: gender,
       createdAt: DateTime.now(),
     );
     await _repo.addPlayer(player);
   }
+
+  Future<void> updatePlayer(PlayerModel player) => _repo.updatePlayer(player);
 
   Future<void> deletePlayer(String id) => _repo.deletePlayer(id);
 }
