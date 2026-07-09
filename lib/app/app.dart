@@ -7,6 +7,7 @@ import '../features/auth/presentation/providers/auth_provider.dart';
 import 'router.dart';
 import 'theme.dart';
 
+
 class ShuttleLeagueApp extends ConsumerWidget {
   const ShuttleLeagueApp({super.key});
 
@@ -55,47 +56,68 @@ class AppShell extends ConsumerWidget {
   final Widget child;
   const AppShell({super.key, required this.child});
 
-  static const _tabs = ['/home', '/players', '/leagues', '/scan'];
-
-  int _selectedIndex(BuildContext context) {
-    final location = GoRouterState.of(context).uri.path;
-    for (int i = 0; i < _tabs.length; i++) {
-      if (location.startsWith(_tabs[i])) return i;
-    }
-    return 0;
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final index = _selectedIndex(context);
+    final isAdmin = ref.watch(isAdminProvider);
+
+    final adminTabs = ['/home', '/players', '/leagues', '/leaderboard'];
+    final userTabs = ['/home', '/leagues', '/leaderboard'];
+    final tabs = isAdmin ? adminTabs : userTabs;
+
+    final location = GoRouterState.of(context).uri.path;
+    int selectedIndex = 0;
+    for (int i = 0; i < tabs.length; i++) {
+      if (location.startsWith(tabs[i])) {
+        selectedIndex = i;
+        break;
+      }
+    }
 
     return Scaffold(
       body: child,
       bottomNavigationBar: NavigationBar(
-        selectedIndex: index,
-        onDestinationSelected: (i) => context.go(_tabs[i]),
-        destinations: [
-          const NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home_rounded),
-            label: 'Home',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.people_outline_rounded),
-            selectedIcon: Icon(Icons.people_rounded),
-            label: 'Players',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.emoji_events_outlined),
-            selectedIcon: Icon(Icons.emoji_events_rounded),
-            label: 'Leagues',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.qr_code_scanner_outlined),
-            selectedIcon: Icon(Icons.qr_code_scanner_rounded),
-            label: 'Scan',
-          ),
-        ],
+        selectedIndex: selectedIndex,
+        onDestinationSelected: (i) => context.go(tabs[i]),
+        destinations: isAdmin
+            ? const [
+                NavigationDestination(
+                  icon: Icon(Icons.home_outlined),
+                  selectedIcon: Icon(Icons.home_rounded),
+                  label: 'Home',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.people_outline_rounded),
+                  selectedIcon: Icon(Icons.people_rounded),
+                  label: 'Players',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.emoji_events_outlined),
+                  selectedIcon: Icon(Icons.emoji_events_rounded),
+                  label: 'Leagues',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.leaderboard_outlined),
+                  selectedIcon: Icon(Icons.leaderboard_rounded),
+                  label: 'Leaderboard',
+                ),
+              ]
+            : const [
+                NavigationDestination(
+                  icon: Icon(Icons.home_outlined),
+                  selectedIcon: Icon(Icons.home_rounded),
+                  label: 'Home',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.emoji_events_outlined),
+                  selectedIcon: Icon(Icons.emoji_events_rounded),
+                  label: 'Leagues',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.leaderboard_outlined),
+                  selectedIcon: Icon(Icons.leaderboard_rounded),
+                  label: 'Leaderboard',
+                ),
+              ],
       ),
     );
   }

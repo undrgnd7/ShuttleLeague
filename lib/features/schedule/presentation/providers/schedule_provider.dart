@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../session/data/session_repository.dart';
+import '../../../session/domain/session_summary.dart';
 import '../../domain/schedule_generator.dart';
 import '../../domain/schedule_model.dart';
 
@@ -37,39 +39,148 @@ class ScheduleState {
 }
 
 class ScheduleNotifier extends StateNotifier<ScheduleState> {
-  ScheduleNotifier() : super(const ScheduleState());
+  final String sessionId;
+  final _repo = SessionRepository();
+  String? _leagueId;
+
+  ScheduleNotifier(this.sessionId) : super(const ScheduleState());
 
   void generate({
+    required String leagueId,
     required List<String> playerIds,
     required int courts,
     Map<String, int>? ratings,
+    Map<String, String>? genders,
   }) {
+    _leagueId = leagueId;
     final matches = ScheduleGenerator.generate(
       playerIds: playerIds,
       courts: courts,
       ratings: ratings,
+      genders: genders,
     );
     state = ScheduleState(matches: matches);
+    _repo.createSession(leagueId, sessionId, matches).catchError((_) {});
   }
 
   void startMatch(int matchNumber) {
     final match = state.matches.firstWhere((m) => m.matchNumber == matchNumber);
-    state = state.copyWithReplaced(
-        match.copyWith(status: MatchStatus.inProgress));
+    final updated = match.copyWith(status: MatchStatus.inProgress);
+    state = state.copyWithReplaced(updated);
+    _repo.updateMatch(sessionId, updated).catchError((_) {});
   }
 
-  void completeMatch(int matchNumber, {required bool teamAWon}) {
+  void completeMatch(int matchNumber,
+      {required bool teamAWon, int? scoreA, int? scoreB}) {
     final match = state.matches.firstWhere((m) => m.matchNumber == matchNumber);
-    state = state.copyWithReplaced(match.copyWith(
+    final updated = match.copyWith(
       status: MatchStatus.completed,
       teamAWon: teamAWon,
-    ));
+      scoreA: scoreA,
+      scoreB: scoreB,
+      completedAt: DateTime.now(),
+    );
+    state = state.copyWithReplaced(updated);
+    _repo.updateMatch(sessionId, updated).catchError((_) {});
+  }
+
+  void editMatch(int matchNumber,
+      {required bool teamAWon, int? scoreA, int? scoreB}) {
+    final match =
+        state.matches.firstWhere((m) => m.matchNumber == matchNumber);
+    final updated = match.copyWith(
+      teamAWon: teamAWon,
+      scoreA: scoreA,
+      scoreB: scoreB,
+    );
+    state = state.copyWithReplaced(updated);
+    _repo.updateMatch(sessionId, updated).catchError((_) {});
+  }
+
+  /// Adds a brand new match, assigning the next available match number.
+  void addMatch({
+    required int round,
+    required int courtNumber,
+    required List<String> teamA,
+    required List<String> teamB,
+  }) {
+    final nextNumber = state.matches.isEmpty
+        ? 1
+        : state.matches.map((m) => m.matchNumber).reduce((a, b) => a > b ? a : b) +
+            1;
+    final match = ScheduledMatch(
+      matchNumber: nextNumber,
+      round: round,
+      courtNumber: courtNumber,
+      teamA: teamA,
+      teamB: teamB,
+    );
+    state = ScheduleState(matches: [...state.matches, match]);
+    _repo.addMatch(sessionId, match).catchError((_) {});
+  }
+
+  /// Removes a match entirely. Callers are responsible for reversing any
+  /// points it had already awarded before calling this.
+  void removeMatch(int matchNumber) {
+    state = ScheduleState(
+      matches:
+          state.matches.where((m) => m.matchNumber != matchNumber).toList(),
+    );
+    _repo.deleteMatch(sessionId, matchNumber).catchError((_) {});
+  }
+
+  /// Replaces [oldPlayerId] with [newPlayerId] in a match.
+  void swapPlayer(int matchNumber,
+      {required String oldPlayerId, required String newPlayerId}) {
+    final match =
+        state.matches.firstWhere((m) => m.matchNumber == matchNumber);
+    final updated = ScheduledMatch(
+      matchNumber: match.matchNumber,
+      round: match.round,
+      courtNumber: match.courtNumber,
+      teamA: match.teamA
+          .map((id) => id == oldPlayerId ? newPlayerId : id)
+          .toList(),
+      teamB: match.teamB
+          .map((id) => id == oldPlayerId ? newPlayerId : id)
+          .toList(),
+      status: match.status,
+      teamAWon: match.teamAWon,
+      scoreA: match.scoreA,
+      scoreB: match.scoreB,
+    );
+    state = state.copyWithReplaced(updated);
+    _repo.updateMatch(sessionId, updated).catchError((_) {});
   }
 
   void reset() => state = const ScheduleState();
+
+  String? get leagueId => _leagueId;
 }
 
 final scheduleProvider =
     StateNotifierProvider.family<ScheduleNotifier, ScheduleState, String>(
-  (ref, sessionId) => ScheduleNotifier(),
+  (ref, sessionId) => ScheduleNotifier(sessionId),
 );
+
+/// In-memory active session ID per league — survives navigation within the session.
+final activeSessionProvider =
+    StateProvider.family<String?, String>((ref, leagueId) => null);
+
+/// Streams the Firestore-persisted active session ID for a league.
+final activeSessionStreamProvider =
+    StreamProvider.family<String?, String>((ref, leagueId) {
+  return SessionRepository().watchActiveSessionId(leagueId);
+});
+
+/// Streams matches for a session from Firestore (player read-only view).
+final sessionMatchesProvider =
+    StreamProvider.family<List<ScheduledMatch>, String>((ref, sessionId) {
+  return SessionRepository().watchMatches(sessionId);
+});
+
+/// Fetches past + active sessions for a league, most recent first.
+final sessionHistoryProvider =
+    FutureProvider.family<List<SessionSummary>, String>((ref, leagueId) {
+  return SessionRepository().getSessionsForLeague(leagueId);
+});

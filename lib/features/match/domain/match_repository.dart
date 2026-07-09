@@ -1,4 +1,4 @@
-import '../match_model.dart';
+import 'match_model.dart';
 
 abstract class MatchRepository {
   Future<List<MatchModel>> getMatches(String sessionId);

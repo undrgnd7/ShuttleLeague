@@ -17,10 +17,12 @@ class PlayerCloudRepository implements PlayerRepository {
     await _players.doc(player.id).set({
       'name': player.name,
       'skillLevel': player.skillLevel,
+      'gender': player.gender.name,
       'rating': player.rating,
       'wins': player.wins,
       'losses': player.losses,
       'createdAt': Timestamp.fromDate(player.createdAt),
+      'isJoker': player.isJoker,
     });
   }
 
@@ -41,6 +43,16 @@ class PlayerCloudRepository implements PlayerRepository {
     final doc = await _players.doc(id).get();
     if (!doc.exists) return null;
     return _docToModel(doc);
+  }
+
+  @override
+  Future<void> updatePlayer(PlayerModel player) async {
+    await _players.doc(player.id).update({
+      'name': player.name,
+      'skillLevel': player.skillLevel,
+      'gender': player.gender.name,
+      'isJoker': player.isJoker,
+    });
   }
 
   @override
@@ -97,6 +109,12 @@ class PlayerCloudRepository implements PlayerRepository {
 
       // Write phase
       for (int i = 0; i < allIds.length; i++) {
+        // Jokers are stand-ins for no-shows — they never earn/lose points.
+        if (globalSnaps[i].exists &&
+            globalSnaps[i].data()!['isJoker'] == true) {
+          continue;
+        }
+
         final isWinner = winnerIds.contains(allIds[i]);
         final pts = isWinner ? EloEngine.pointsForWin : EloEngine.pointsForLoss;
 
@@ -126,16 +144,167 @@ class PlayerCloudRepository implements PlayerRepository {
     });
   }
 
+  @override
+  Future<void> editMatchResult({
+    required String leagueId,
+    required List<String> oldWinnerIds,
+    required List<String> oldLoserIds,
+  }) async {
+    final allIds = [...oldWinnerIds, ...oldLoserIds];
+    final globalRefs = allIds.map((id) => _players.doc(id)).toList();
+    final leagueRefs = allIds
+        .map((id) => _db
+            .collection('leagues')
+            .doc(leagueId)
+            .collection('players')
+            .doc(id))
+        .toList();
+
+    // Win=+3, Loss=+1. To flip result:
+    //   old winner (now loser): −3+1 = −2 pts, −1 win, +1 loss
+    //   old loser  (now winner): −1+3 = +2 pts, +1 win, −1 loss
+    const winPts = EloEngine.pointsForWin;
+    const lossPts = EloEngine.pointsForLoss;
+
+    await _db.runTransaction((tx) async {
+      final globalSnaps = <DocumentSnapshot<Map<String, dynamic>>>[];
+      for (final ref in globalRefs) {
+        globalSnaps.add(await tx.get(ref));
+      }
+      final leagueSnaps = <DocumentSnapshot<Map<String, dynamic>>>[];
+      for (final ref in leagueRefs) {
+        leagueSnaps.add(await tx.get(ref));
+      }
+
+      for (int i = 0; i < allIds.length; i++) {
+        // Jokers are stand-ins for no-shows — they never earn/lose points.
+        if (globalSnaps[i].exists &&
+            globalSnaps[i].data()!['isJoker'] == true) {
+          continue;
+        }
+
+        final wasWinner = oldWinnerIds.contains(allIds[i]);
+        final ptsDelta = wasWinner ? (-winPts + lossPts) : (-lossPts + winPts);
+        final winsDelta = wasWinner ? -1 : 1;
+        final lossesDelta = wasWinner ? 1 : -1;
+
+        if (globalSnaps[i].exists) {
+          final d = globalSnaps[i].data()!;
+          tx.update(globalRefs[i], {
+            'rating': ((d['rating'] as num?)?.toInt() ?? 0) + ptsDelta,
+            'wins': ((d['wins'] as num?)?.toInt() ?? 0) + winsDelta,
+            'losses': ((d['losses'] as num?)?.toInt() ?? 0) + lossesDelta,
+          });
+        }
+
+        if (leagueSnaps[i].exists) {
+          final ld = leagueSnaps[i].data()!;
+          tx.update(leagueRefs[i], {
+            'rating': ((ld['rating'] as num?)?.toInt() ?? 0) + ptsDelta,
+            'wins': ((ld['wins'] as num?)?.toInt() ?? 0) + winsDelta,
+            'losses': ((ld['losses'] as num?)?.toInt() ?? 0) + lossesDelta,
+          });
+        }
+      }
+    });
+  }
+
+  @override
+  Future<void> revertMatchResult({
+    required String leagueId,
+    required List<String> winnerIds,
+    required List<String> loserIds,
+  }) async {
+    final allIds = [...winnerIds, ...loserIds];
+    final globalRefs = allIds.map((id) => _players.doc(id)).toList();
+    final leagueRefs = allIds
+        .map((id) => _db
+            .collection('leagues')
+            .doc(leagueId)
+            .collection('players')
+            .doc(id))
+        .toList();
+
+    await _db.runTransaction((tx) async {
+      final globalSnaps = <DocumentSnapshot<Map<String, dynamic>>>[];
+      for (final ref in globalRefs) {
+        globalSnaps.add(await tx.get(ref));
+      }
+      final leagueSnaps = <DocumentSnapshot<Map<String, dynamic>>>[];
+      for (final ref in leagueRefs) {
+        leagueSnaps.add(await tx.get(ref));
+      }
+
+      for (int i = 0; i < allIds.length; i++) {
+        // Jokers are stand-ins for no-shows — they never earn/lose points.
+        if (globalSnaps[i].exists &&
+            globalSnaps[i].data()!['isJoker'] == true) {
+          continue;
+        }
+
+        final wasWinner = winnerIds.contains(allIds[i]);
+        final pts =
+            wasWinner ? EloEngine.pointsForWin : EloEngine.pointsForLoss;
+
+        if (globalSnaps[i].exists) {
+          final d = globalSnaps[i].data()!;
+          tx.update(globalRefs[i], {
+            'rating': ((d['rating'] as num?)?.toInt() ?? 0) - pts,
+            'wins': ((d['wins'] as num?)?.toInt() ?? 0) - (wasWinner ? 1 : 0),
+            'losses':
+                ((d['losses'] as num?)?.toInt() ?? 0) - (wasWinner ? 0 : 1),
+          });
+        }
+
+        if (leagueSnaps[i].exists) {
+          final ld = leagueSnaps[i].data()!;
+          tx.update(leagueRefs[i], {
+            'rating': ((ld['rating'] as num?)?.toInt() ?? 0) - pts,
+            'wins':
+                ((ld['wins'] as num?)?.toInt() ?? 0) - (wasWinner ? 1 : 0),
+            'losses':
+                ((ld['losses'] as num?)?.toInt() ?? 0) - (wasWinner ? 0 : 1),
+          });
+        }
+      }
+    });
+  }
+
+  @override
+  Future<void> adjustPlayerPoints({
+    required String playerId,
+    required bool isWin,
+    bool add = true,
+  }) async {
+    final sign = add ? 1 : -1;
+    final pts = (isWin ? EloEngine.pointsForWin : EloEngine.pointsForLoss) * sign;
+    final ref = _players.doc(playerId);
+
+    await _db.runTransaction((tx) async {
+      final snap = await tx.get(ref);
+      if (!snap.exists) return;
+      final d = snap.data()!;
+      if (d['isJoker'] == true) return; // Jokers never earn/lose points.
+      tx.update(ref, {
+        'rating': ((d['rating'] as num?)?.toInt() ?? 0) + pts,
+        'wins': ((d['wins'] as num?)?.toInt() ?? 0) + (isWin ? sign : 0),
+        'losses': ((d['losses'] as num?)?.toInt() ?? 0) + (isWin ? 0 : sign),
+      });
+    });
+  }
+
   PlayerModel _docToModel(DocumentSnapshot<Map<String, dynamic>> doc) {
     final d = doc.data()!;
     return PlayerModel(
       id: doc.id,
       name: d['name'] as String,
       skillLevel: (d['skillLevel'] as num?)?.toInt() ?? 1,
+      gender: d['gender'] == 'female' ? PlayerGender.female : PlayerGender.male,
       rating: (d['rating'] as num?)?.toInt() ?? 0,
       wins: (d['wins'] as num?)?.toInt() ?? 0,
       losses: (d['losses'] as num?)?.toInt() ?? 0,
       createdAt: (d['createdAt'] as Timestamp).toDate(),
+      isJoker: d['isJoker'] == true,
     );
   }
 }

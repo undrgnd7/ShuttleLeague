@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/league_model.dart';
 import '../providers/league_provider.dart';
 
 class CreateLeaguePage extends ConsumerStatefulWidget {
-  const CreateLeaguePage({super.key});
+  /// Null = create mode. Non-null = edit mode.
+  final LeagueModel? league;
+  const CreateLeaguePage({super.key, this.league});
 
   @override
   ConsumerState<CreateLeaguePage> createState() => _CreateLeaguePageState();
@@ -17,6 +20,17 @@ class _CreateLeaguePageState extends ConsumerState<CreateLeaguePage> {
   bool _saving = false;
   String? _nameError;
 
+  bool get _isEdit => widget.league != null;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isEdit) {
+      _nameCtrl.text = widget.league!.name;
+      _maxPlayers = widget.league!.maxPlayers;
+    }
+  }
+
   @override
   void dispose() {
     _nameCtrl.dispose();
@@ -28,10 +42,20 @@ class _CreateLeaguePageState extends ConsumerState<CreateLeaguePage> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
     try {
-      await ref
-          .read(leagueControllerProvider)
-          .createLeague(_nameCtrl.text, maxPlayers: _maxPlayers);
-      if (mounted) Navigator.pop(context);
+      if (_isEdit) {
+        final updated = LeagueModel(
+          id: widget.league!.id,
+          name: _nameCtrl.text.trim(),
+          maxPlayers: _maxPlayers,
+          createdAt: widget.league!.createdAt,
+        );
+        await ref.read(leagueControllerProvider).updateLeague(updated);
+      } else {
+        await ref
+            .read(leagueControllerProvider)
+            .createLeague(_nameCtrl.text, maxPlayers: _maxPlayers);
+      }
+      if (mounted) Navigator.pop(context, true);
     } on Exception catch (e) {
       if (mounted) {
         setState(() =>
@@ -48,7 +72,7 @@ class _CreateLeaguePageState extends ConsumerState<CreateLeaguePage> {
     final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('New League')),
+      appBar: AppBar(title: Text(_isEdit ? 'Edit League' : 'New League')),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -76,7 +100,7 @@ class _CreateLeaguePageState extends ConsumerState<CreateLeaguePage> {
             const SizedBox(height: 8),
             TextFormField(
               controller: _nameCtrl,
-              autofocus: true,
+              autofocus: !_isEdit,
               textCapitalization: TextCapitalization.words,
               decoration: const InputDecoration(
                 hintText: 'e.g. Tuesday Doubles',
@@ -99,8 +123,8 @@ class _CreateLeaguePageState extends ConsumerState<CreateLeaguePage> {
                         .labelLarge
                         ?.copyWith(fontWeight: FontWeight.w600)),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 5),
                   decoration: BoxDecoration(
                     color: cs.primaryContainer,
                     borderRadius: BorderRadius.circular(8),
@@ -155,7 +179,7 @@ class _CreateLeaguePageState extends ConsumerState<CreateLeaguePage> {
                         child: CircularProgressIndicator(
                             strokeWidth: 2, color: Colors.white),
                       )
-                    : const Text('Create League'),
+                    : Text(_isEdit ? 'Save Changes' : 'Create League'),
               ),
             ),
           ],

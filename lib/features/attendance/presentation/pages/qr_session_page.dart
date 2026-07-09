@@ -14,7 +14,6 @@ class QRSessionPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final sessionId = ref.watch(currentSessionProvider);
-    final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Session QR')),
@@ -137,7 +136,7 @@ class _ActiveSessionView extends StatelessWidget {
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.08),
+                color: Colors.black.withValues(alpha: 0.08),
                 blurRadius: 20,
                 offset: const Offset(0, 4),
               ),
@@ -181,7 +180,7 @@ class _ActiveSessionView extends StatelessWidget {
             decoration: BoxDecoration(
               color: cs.surfaceContainerLow,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: cs.outline.withOpacity(0.3)),
+              border: Border.all(color: cs.outline.withValues(alpha: 0.3)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,

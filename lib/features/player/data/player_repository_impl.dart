@@ -40,6 +40,15 @@ class PlayerRepositoryImpl implements PlayerRepository {
   }
 
   @override
+  Future<void> updatePlayer(PlayerModel player) async {
+    await (db.update(db.players)..where((p) => p.id.equals(player.id)))
+        .write(PlayersCompanion(
+      name: Value(player.name),
+      skillLevel: Value(player.skillLevel),
+    ));
+  }
+
+  @override
   Future<void> deletePlayer(String id) async {
     await (db.delete(db.players)..where((p) => p.id.equals(id))).go();
     await (db.delete(db.leaguePlayers)..where((lp) => lp.playerId.equals(id)))
@@ -110,6 +119,15 @@ class PlayerRepositoryImpl implements PlayerRepository {
         ),
       );
     }
+  }
+
+  @override
+  Future<void> editMatchResult({
+    required String leagueId,
+    required List<String> oldWinnerIds,
+    required List<String> oldLoserIds,
+  }) async {
+    // SQLite path not used — Firestore handles this
   }
 
   PlayerModel _toModel(dynamic p) => PlayerModel(

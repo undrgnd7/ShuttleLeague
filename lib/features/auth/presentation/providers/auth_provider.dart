@@ -4,6 +4,40 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // ─── Auth state ───────────────────────────────────────────────────────────────
 
+class UserRecord {
+  final String uid;
+  final String name;
+  final String email;
+  final String role;
+  final String? playerId;
+
+  const UserRecord({
+    required this.uid,
+    required this.name,
+    required this.email,
+    required this.role,
+    this.playerId,
+  });
+
+  factory UserRecord.fromDoc(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return UserRecord(
+      uid: doc.id,
+      name: data['name'] as String? ?? '',
+      email: data['email'] as String? ?? '',
+      role: data['role'] as String? ?? 'player',
+      playerId: data['playerId'] as String?,
+    );
+  }
+}
+
+final allUsersProvider = StreamProvider<List<UserRecord>>((ref) {
+  return FirebaseFirestore.instance
+      .collection('users')
+      .snapshots()
+      .map((snap) => snap.docs.map(UserRecord.fromDoc).toList());
+});
+
 final authStateProvider = StreamProvider<User?>((ref) {
   return FirebaseAuth.instance.authStateChanges();
 });
@@ -70,4 +104,46 @@ class AuthService {
   }
 
   static Future<void> signOut() => _auth.signOut();
+
+  static Future<void> updateProfile({required String name}) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+    await Future.wait([
+      user.updateDisplayName(name.trim()),
+      _db.collection('users').doc(user.uid).update({'name': name.trim()}),
+    ]);
+  }
+
+  static Future<void> sendPasswordReset() async {
+    final email = _auth.currentUser?.email;
+    if (email == null) throw Exception('No email on account');
+    await _auth.sendPasswordResetEmail(email: email);
+  }
+
+  static Future<void> deleteAccount() async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+    await _db.collection('users').doc(user.uid).delete();
+    await user.delete();
+  }
+
+  static Future<void> sendPasswordResetByEmail(String email) async {
+    await _auth.sendPasswordResetEmail(email: email.trim());
+  }
+
+  static Future<void> updateUserRole(String uid, String role) async {
+    await _db.collection('users').doc(uid).update({'role': role});
+  }
+
+  /// Links a user account to a player profile so they can see personal
+  /// stats. Non-mandatory — admin-managed.
+  static Future<void> bindPlayer(String uid, String playerId) async {
+    await _db.collection('users').doc(uid).update({'playerId': playerId});
+  }
+
+  static Future<void> unbindPlayer(String uid) async {
+    await _db.collection('users').doc(uid).update({
+      'playerId': FieldValue.delete(),
+    });
+  }
 }

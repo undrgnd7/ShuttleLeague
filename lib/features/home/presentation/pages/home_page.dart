@@ -7,7 +7,10 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/theme.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../league/presentation/pages/league_list_page.dart';
+import '../../../player/data/player_model.dart';
+import '../../../player/presentation/providers/my_dashboard_provider.dart';
 import '../../../player/presentation/providers/player_provider.dart';
+
 
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
@@ -16,6 +19,7 @@ class HomePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final leaguesAsync = ref.watch(leagueListProvider);
     final playersAsync = ref.watch(playerListProvider);
+    final isAdmin = ref.watch(isAdminProvider);
     final cs = Theme.of(context).colorScheme;
 
     final playerCount = playersAsync.valueOrNull?.length ?? 0;
@@ -29,11 +33,10 @@ class HomePage extends ConsumerWidget {
             expandedHeight: 180,
             actions: [
               IconButton(
-                icon: const Icon(Icons.logout_rounded, color: Colors.white),
-                tooltip: 'Sign Out',
-                onPressed: () async {
-                  await AuthService.signOut();
-                },
+                icon: const Icon(Icons.account_circle_outlined,
+                    color: Colors.white),
+                tooltip: 'My Account',
+                onPressed: () => context.push('/account'),
               ),
             ],
             flexibleSpace: FlexibleSpaceBar(
@@ -54,7 +57,7 @@ class HomePage extends ConsumerWidget {
                   Text(
                     'Badminton League Manager',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.75),
+                      color: Colors.white.withValues(alpha: 0.75),
                       fontSize: 11,
                       fontWeight: FontWeight.w400,
                     ),
@@ -68,6 +71,10 @@ class HomePage extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
+                if (!isAdmin) ...[
+                  const _MyStatsCard(),
+                  const SizedBox(height: 20),
+                ],
                 // Stats row
                 Row(
                   children: [
@@ -85,7 +92,7 @@ class HomePage extends ConsumerWidget {
                       color: const Color(0xFF1565C0),
                     ),
                     const SizedBox(width: 12),
-                    _StatCard(
+                    const _StatCard(
                       label: 'Win = +3pts',
                       value: 'Points',
                       icon: Icons.bar_chart_rounded,
@@ -111,44 +118,53 @@ class HomePage extends ConsumerWidget {
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
                   childAspectRatio: 1.6,
-                  children: [
-                    _ActionTile(
-                      icon: Icons.person_add_rounded,
-                      label: 'Add Player',
-                      color: cs.primary,
-                      onTap: () => context.push('/players/create'),
-                    ),
-                    _ActionTile(
-                      icon: Icons.add_circle_rounded,
-                      label: 'Create League',
-                      color: const Color(0xFF1565C0),
-                      onTap: () => context.push('/leagues/create'),
-                    ),
-                    _ActionTile(
-                      icon: Icons.qr_code_scanner_rounded,
-                      label: 'Scan QR',
-                      color: const Color(0xFF00695C),
-                      onTap: () => context.go('/scan'),
-                    ),
-                    _ActionTile(
-                      icon: Icons.leaderboard_rounded,
-                      label: 'Leaderboard',
-                      color: AppTheme.ratingAmber,
-                      onTap: () {
-                        final leagues = leaguesAsync.valueOrNull ?? [];
-                        if (leagues.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content:
-                                    Text('No leagues yet — create one first')),
-                          );
-                          return;
-                        }
-                        context.push(
-                            '/leagues/${leagues.first.id}/leaderboard');
-                      },
-                    ),
-                  ],
+                  children: isAdmin
+                      ? [
+                          _ActionTile(
+                            icon: Icons.person_add_rounded,
+                            label: 'Add Player',
+                            color: cs.primary,
+                            onTap: () => context.push('/players/create'),
+                          ),
+                          _ActionTile(
+                            icon: Icons.add_circle_rounded,
+                            label: 'Create League',
+                            color: const Color(0xFF1565C0),
+                            onTap: () => context.push('/leagues/create'),
+                          ),
+                          _ActionTile(
+                            icon: Icons.qr_code_scanner_rounded,
+                            label: 'Scan QR',
+                            color: const Color(0xFF00695C),
+                            onTap: () => context.go('/scan'),
+                          ),
+                          _ActionTile(
+                            icon: Icons.leaderboard_rounded,
+                            label: 'Leaderboard',
+                            color: AppTheme.ratingAmber,
+                            onTap: () => context.push('/leaderboard'),
+                          ),
+                          _ActionTile(
+                            icon: Icons.manage_accounts_rounded,
+                            label: 'Manage Users',
+                            color: const Color(0xFF6A1B9A),
+                            onTap: () => context.push('/admin/users'),
+                          ),
+                        ]
+                      : [
+                          _ActionTile(
+                            icon: Icons.emoji_events_rounded,
+                            label: 'My Leagues',
+                            color: const Color(0xFF1565C0),
+                            onTap: () => context.go('/leagues'),
+                          ),
+                          _ActionTile(
+                            icon: Icons.leaderboard_rounded,
+                            label: 'Leaderboard',
+                            color: AppTheme.ratingAmber,
+                            onTap: () => context.push('/leaderboard'),
+                          ),
+                        ],
                 ),
                 const SizedBox(height: 28),
 
@@ -189,7 +205,7 @@ class HomePage extends ConsumerWidget {
                                   name: l.name,
                                   maxPlayers: l.maxPlayers,
                                   onTap: () =>
-                                      context.push('/leagues/${l.id}'),
+                                      context.push('/leagues/${l.id}', extra: l),
                                 ),
                               ))
                           .toList(),
@@ -241,7 +257,7 @@ class _CourtPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.white.withOpacity(0.12)
+      ..color = Colors.white.withValues(alpha: 0.12)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2;
 
@@ -295,7 +311,7 @@ class _CourtPainter extends CustomPainter {
     // Simplified: a small circle + radiating lines (feathers)
     canvas.drawCircle(center, r * 0.3, paint);
     final featherPaint = Paint()
-      ..color = Colors.white.withOpacity(0.1)
+      ..color = Colors.white.withValues(alpha: 0.1)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
     for (int i = 0; i < 8; i++) {
@@ -320,6 +336,215 @@ class _CourtPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
+// ─── My Stats (for a user linked to a player) ────────────────────────────────
+
+class _MyStatsCard extends ConsumerWidget {
+  const _MyStatsCard();
+
+  String _matchPlayersLabel(MyDashboard dashboard, List<PlayerModel> players) {
+    final playerMap = {for (final p in players) p.id: p};
+    String nameFor(String id) {
+      if (id == dashboard.player.id) return 'You';
+      return playerMap[id]?.name.split(' ').first ?? 'Unknown';
+    }
+
+    final match = dashboard.nextMatch!;
+    final teamA = match.teamA.map(nameFor).join(' & ');
+    final teamB = match.teamB.map(nameFor).join(' & ');
+    return '$teamA  vs  $teamB';
+  }
+
+  String _lastMatchScoreLabel(MyDashboard dashboard) {
+    final match = dashboard.lastMatch!;
+    if (match.scoreA == null || match.scoreB == null) return '';
+    final onTeamA = match.teamA.contains(dashboard.player.id);
+    final myScore = onTeamA ? match.scoreA : match.scoreB;
+    final oppScore = onTeamA ? match.scoreB : match.scoreA;
+    return ' ($myScore–$oppScore)';
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dashboardAsync = ref.watch(myDashboardProvider);
+    final playersAsync = ref.watch(playerListProvider);
+    final cs = Theme.of(context).colorScheme;
+
+    return dashboardAsync.when(
+      data: (dashboard) {
+        if (dashboard == null) return const SizedBox();
+        final player = dashboard.player;
+        final total = player.wins + player.losses;
+        final winRate = total > 0 ? player.wins / total : 0.0;
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                cs.primaryContainer,
+                cs.primaryContainer.withValues(alpha: 0.5),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.person_rounded, size: 16, color: cs.onPrimaryContainer),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text('My Stats — ${player.name}',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                            color: cs.onPrimaryContainer)),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => context.push('/me/history'),
+                    icon: const Icon(Icons.history_rounded, size: 14),
+                    label: const Text('History'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: cs.onPrimaryContainer,
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  _MiniStat(label: 'Points', value: '${player.rating}'),
+                  _MiniStat(label: 'Wins', value: '${player.wins}'),
+                  _MiniStat(label: 'Losses', value: '${player.losses}'),
+                  _MiniStat(
+                      label: 'Win Rate',
+                      value: total > 0
+                          ? '${(winRate * 100).toStringAsFixed(0)}%'
+                          : '-'),
+                ],
+              ),
+              if (dashboard.lastMatch != null) ...[
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Icon(
+                        dashboard.lastMatchWon == true
+                            ? Icons.emoji_events_rounded
+                            : Icons.close_rounded,
+                        size: 14,
+                        color: dashboard.lastMatchWon == true
+                            ? const Color(0xFF2E7D32)
+                            : cs.error),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Last match: ${dashboard.lastMatchWon == true ? 'Won' : 'Lost'}'
+                      '${_lastMatchScoreLabel(dashboard)}',
+                      style: TextStyle(fontSize: 12, color: cs.onPrimaryContainer),
+                    ),
+                  ],
+                ),
+              ],
+              if (dashboard.nextMatch != null) ...[
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: cs.surface.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.event_rounded,
+                              size: 14, color: cs.onPrimaryContainer),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              'Next match: Round ${dashboard.nextMatch!.round} · Court ${dashboard.nextMatch!.courtNumber}'
+                              '${dashboard.leagueName != null ? ' — ${dashboard.leagueName}' : ''}',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: cs.onPrimaryContainer),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        _matchPlayersLabel(
+                            dashboard, playersAsync.valueOrNull ?? []),
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: cs.onPrimaryContainer.withValues(alpha: 0.85)),
+                      ),
+                      if (dashboard.leagueId != null &&
+                          dashboard.sessionId != null) ...[
+                        const SizedBox(height: 6),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton.icon(
+                            onPressed: () => context.push(
+                              '/leagues/${dashboard.leagueId}/session/${dashboard.sessionId}/view'
+                              '?leagueName=${Uri.encodeComponent(dashboard.leagueName ?? 'League')}',
+                            ),
+                            icon: const Icon(Icons.arrow_forward_rounded,
+                                size: 14),
+                            label: const Text('View Live Session'),
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+      loading: () => const SizedBox(),
+      error: (_, __) => const SizedBox(),
+    );
+  }
+}
+
+class _MiniStat extends StatelessWidget {
+  final String label;
+  final String value;
+  const _MiniStat({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Expanded(
+      child: Column(
+        children: [
+          Text(value,
+              style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: cs.onPrimaryContainer)),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 10,
+                  color: cs.onPrimaryContainer.withValues(alpha: 0.75))),
+        ],
+      ),
+    );
+  }
+}
+
 // ─── Widgets ─────────────────────────────────────────────────────────────────
 
 class _StatCard extends StatelessWidget {
@@ -341,7 +566,7 @@ class _StatCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(14),
         ),
         child: Column(
@@ -363,7 +588,7 @@ class _StatCard extends StatelessWidget {
               label,
               style: TextStyle(
                 fontSize: 11,
-                color: color.withOpacity(0.8),
+                color: color.withValues(alpha: 0.8),
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -390,7 +615,7 @@ class _ActionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: color.withOpacity(0.08),
+      color: color.withValues(alpha: 0.08),
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: onTap,
@@ -402,7 +627,7 @@ class _ActionTile extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.15),
+                  color: color.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(icon, color: color, size: 20),

@@ -1,15 +1,17 @@
-import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../../../core/database/app_database.dart';
-import '../../domain/match_model.dart';
-import '../../domain/match_generator.dart';
-import '../../domain/match_repository.dart';
+import '../../../core/database/app_database.dart';
+import '../../player/data/player_model.dart';
+import '../../player/domain/player_repository.dart';
+import '../domain/match_model.dart';
+import '../domain/match_generator.dart';
+import '../domain/match_repository.dart';
 
 class MatchRepositoryImpl implements MatchRepository {
   final AppDatabase db;
+  final PlayerRepository playerRepository;
 
-  MatchRepositoryImpl(this.db);
+  MatchRepositoryImpl(this.db, this.playerRepository);
 
   @override
   Future<List<MatchModel>> getMatches(String sessionId) async {
@@ -37,7 +39,15 @@ class MatchRepositoryImpl implements MatchRepository {
     required String sessionId,
     required List<String> playerIds,
   }) async {
-    final generated = MatchGenerator.generateDoubles(playerIds);
+    final players = await playerRepository.getPlayers();
+    final genders = {
+      for (final p in players)
+        if (playerIds.contains(p.id))
+          p.id: p.gender == PlayerGender.female ? 'female' : 'male',
+    };
+
+    final generated =
+        MatchGenerator.generateDoubles(playerIds, genders: genders);
 
     for (final match in generated) {
       final teamA = match[0];

@@ -1,0 +1,15 @@
+{
+  "projects": {
+    "default": "shuttleleague-c8c7d"
+  },
+  "targets": {
+    "shuttleleague-c8c7d": {
+      "hosting": {
+        "main": [
+          "shuttleleague"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

@@ -1,5 +1,3 @@
-import '../domain/session_model.dart';
-
 abstract class AttendanceRepository {
   Future<String> createSession(String leagueId);
 

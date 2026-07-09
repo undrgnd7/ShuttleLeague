@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/player_model.dart';
 import '../../data/player_cloud_repository.dart';
 import '../../../../core/firebase/firebase_provider.dart';
+import '../../../leaderboard/domain/elo_engine.dart';
+import '../providers/player_provider.dart';
 
 final _playerProfileProvider =
     FutureProvider.family<PlayerModel?, String>((ref, id) {
@@ -36,13 +39,53 @@ class PlayerProfilePage extends ConsumerWidget {
   }
 }
 
-class _ProfileView extends StatelessWidget {
+class _ProfileView extends ConsumerWidget {
   final PlayerModel player;
   const _ProfileView({required this.player});
 
+  Future<void> _adjustPoints(
+      BuildContext context, WidgetRef ref, bool isWin, bool add) async {
+    final pts = isWin ? EloEngine.pointsForWin : EloEngine.pointsForLoss;
+    final resultLabel = isWin ? 'win' : 'loss';
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(add ? 'Award a ${isWin ? 'Win' : 'Loss'}' : 'Remove a ${isWin ? 'Win' : 'Loss'}'),
+        content: Text(add
+            ? 'Give ${player.name} a $resultLabel (+$pts pts), independent of any match.'
+            : 'Take away a $resultLabel from ${player.name} (-$pts pts). Use this to correct a previous manual adjustment.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+
+    await ref
+        .read(playerControllerProvider)
+        .adjustPoints(player.id, isWin: isWin, add: add);
+    ref.invalidate(_playerProfileProvider(player.id));
+    ref.invalidate(playerListProvider);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(add
+                ? '${isWin ? 'Win' : 'Loss'} awarded'
+                : '${isWin ? 'Win' : 'Loss'} removed')),
+      );
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
+    final isAdmin = ref.watch(isAdminProvider);
     final avatarColor = AppTheme.avatarColor(player.name);
     final initials = _initials(player.name);
     final total = player.wins + player.losses;
@@ -62,7 +105,7 @@ class _ProfileView extends StatelessWidget {
                     end: Alignment.bottomCenter,
                     colors: [
                       avatarColor,
-                      avatarColor.withOpacity(0.6),
+                      avatarColor.withValues(alpha: 0.6),
                     ],
                   ),
                 ),
@@ -75,10 +118,10 @@ class _ProfileView extends StatelessWidget {
                         width: 80,
                         height: 80,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.25),
+                          color: Colors.white.withValues(alpha: 0.25),
                           borderRadius: BorderRadius.circular(22),
                           border: Border.all(
-                              color: Colors.white.withOpacity(0.4), width: 2),
+                              color: Colors.white.withValues(alpha: 0.4), width: 2),
                         ),
                         alignment: Alignment.center,
                         child: Text(initials,
@@ -94,7 +137,38 @@ class _ProfileView extends StatelessWidget {
                               fontWeight: FontWeight.w800,
                               fontSize: 22)),
                       const SizedBox(height: 4),
-                      _SkillBadge(level: player.skillLevel),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _SkillBadge(level: player.skillLevel),
+                          const SizedBox(width: 6),
+                          Icon(
+                            player.gender == PlayerGender.female
+                                ? Icons.female_rounded
+                                : Icons.male_rounded,
+                            size: 18,
+                            color: player.gender == PlayerGender.female
+                                ? Colors.pinkAccent
+                                : Colors.white.withValues(alpha: 0.85),
+                          ),
+                          if (player.isJoker) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Text('Joker',
+                                  style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600)),
+                            ),
+                          ],
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -146,8 +220,8 @@ class _ProfileView extends StatelessWidget {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text('Win Rate',
-                                  style: const TextStyle(
+                              const Text('Win Rate',
+                                  style: TextStyle(
                                       fontWeight: FontWeight.w600,
                                       fontSize: 14)),
                               Text(
@@ -185,14 +259,24 @@ class _ProfileView extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Player Info',
-                            style: const TextStyle(
+                        const Text('Player Info',
+                            style: TextStyle(
                                 fontWeight: FontWeight.w700, fontSize: 14)),
                         const SizedBox(height: 12),
                         _InfoRow(
                           icon: Icons.sports_tennis_rounded,
                           label: 'Skill Level',
                           value: _skillLabel(player.skillLevel),
+                        ),
+                        const SizedBox(height: 8),
+                        _InfoRow(
+                          icon: player.gender == PlayerGender.female
+                              ? Icons.female_rounded
+                              : Icons.male_rounded,
+                          label: 'Gender',
+                          value: player.gender == PlayerGender.female
+                              ? 'Female'
+                              : 'Male',
                         ),
                         const SizedBox(height: 8),
                         _InfoRow(
@@ -210,6 +294,91 @@ class _ProfileView extends StatelessWidget {
                     ),
                   ),
                 ),
+
+                if (isAdmin && !player.isJoker) ...[
+                  const SizedBox(height: 8),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Adjust Points',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w700, fontSize: 14)),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Award a result directly, without a match.',
+                            style: TextStyle(
+                                fontSize: 12, color: cs.onSurfaceVariant),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: () =>
+                                      _adjustPoints(context, ref, true, true),
+                                  icon: const Icon(Icons.add_rounded, size: 18),
+                                  label: const Text(
+                                      'Win (+${EloEngine.pointsForWin})'),
+                                  style: OutlinedButton.styleFrom(
+                                      foregroundColor:
+                                          const Color(0xFF2E7D32)),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: () =>
+                                      _adjustPoints(context, ref, false, true),
+                                  icon:
+                                      const Icon(Icons.remove_rounded, size: 18),
+                                  label: const Text(
+                                      'Loss (+${EloEngine.pointsForLoss})'),
+                                  style: OutlinedButton.styleFrom(
+                                      foregroundColor: cs.error),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextButton.icon(
+                                  onPressed: () =>
+                                      _adjustPoints(context, ref, true, false),
+                                  icon: const Icon(
+                                      Icons.remove_circle_outline_rounded,
+                                      size: 18),
+                                  label: const Text(
+                                      'Undo Win (-${EloEngine.pointsForWin})'),
+                                  style: TextButton.styleFrom(
+                                      foregroundColor: cs.onSurfaceVariant),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: TextButton.icon(
+                                  onPressed: () =>
+                                      _adjustPoints(context, ref, false, false),
+                                  icon: const Icon(
+                                      Icons.remove_circle_outline_rounded,
+                                      size: 18),
+                                  label: const Text(
+                                      'Undo Loss (-${EloEngine.pointsForLoss})'),
+                                  style: TextButton.styleFrom(
+                                      foregroundColor: cs.onSurfaceVariant),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 24),
               ]),
             ),
@@ -286,7 +455,7 @@ class _RatingHero extends StatelessWidget {
                   _ratingLabel(player.rating),
                   style: TextStyle(
                       fontSize: 12,
-                      color: AppTheme.ratingAmber.withOpacity(0.7),
+                      color: AppTheme.ratingAmber.withValues(alpha: 0.7),
                       fontWeight: FontWeight.w500),
                 ),
               ],
@@ -296,7 +465,7 @@ class _RatingHero extends StatelessWidget {
               width: 64,
               height: 64,
               decoration: BoxDecoration(
-                color: AppTheme.ratingAmber.withOpacity(0.12),
+                color: AppTheme.ratingAmber.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(18),
               ),
               child: const Icon(Icons.emoji_events_rounded,
@@ -402,7 +571,7 @@ class _SkillBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.2),
+        color: Colors.white.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(

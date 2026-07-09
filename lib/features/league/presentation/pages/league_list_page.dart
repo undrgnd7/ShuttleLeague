@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/firebase/firebase_provider.dart';
+import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../data/league_model.dart';
 import '../../data/league_cloud_repository.dart';
 import '../providers/league_provider.dart';
@@ -46,12 +47,13 @@ class LeagueListPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final leaguesAsync = ref.watch(leagueListProvider);
+    final isAdmin = ref.watch(isAdminProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Leagues')),
       body: leaguesAsync.when(
         data: (leagues) {
-          if (leagues.isEmpty) return _empty(context);
+          if (leagues.isEmpty) return _empty(context, isAdmin);
           return RefreshIndicator(
             onRefresh: () async => ref.invalidate(leagueListProvider),
             child: ListView.builder(
@@ -59,6 +61,17 @@ class LeagueListPage extends ConsumerWidget {
               itemCount: leagues.length,
               itemBuilder: (ctx, i) {
                 final league = leagues[i];
+                final card = _LeagueCard(
+                  league: league,
+                  isAdmin: isAdmin,
+                  onDelete: () => _confirmDelete(context, ref, league),
+                );
+                if (!isAdmin) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: card,
+                  );
+                }
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 10),
                   child: Dismissible(
@@ -78,10 +91,7 @@ class LeagueListPage extends ConsumerWidget {
                       child: const Icon(Icons.delete_rounded,
                           color: Colors.red, size: 24),
                     ),
-                    child: _LeagueCard(
-                      league: league,
-                      onDelete: () => _confirmDelete(context, ref, league),
-                    ),
+                    child: card,
                   ),
                 );
               },
@@ -91,18 +101,20 @@ class LeagueListPage extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          await context.push('/leagues/create');
-          ref.invalidate(leagueListProvider);
-        },
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('New League'),
-      ),
+      floatingActionButton: isAdmin
+          ? FloatingActionButton.extended(
+              onPressed: () async {
+                await context.push('/leagues/create');
+                ref.invalidate(leagueListProvider);
+              },
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('New League'),
+            )
+          : null,
     );
   }
 
-  Widget _empty(BuildContext context) {
+  Widget _empty(BuildContext context, bool isAdmin) {
     final cs = Theme.of(context).colorScheme;
     return Center(
       child: Column(
@@ -124,14 +136,20 @@ class LeagueListPage extends ConsumerWidget {
                   .titleMedium
                   ?.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
-          Text('Create your first league to start playing',
-              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 14)),
-          const SizedBox(height: 20),
-          FilledButton.icon(
-            onPressed: () => context.push('/leagues/create'),
-            icon: const Icon(Icons.add_rounded),
-            label: const Text('Create League'),
+          Text(
+            isAdmin
+                ? 'Create your first league to start playing'
+                : 'No leagues have been created yet',
+            style: TextStyle(color: cs.onSurfaceVariant, fontSize: 14),
           ),
+          if (isAdmin) ...[
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed: () => context.push('/leagues/create'),
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Create League'),
+            ),
+          ],
         ],
       ),
     );
@@ -141,7 +159,12 @@ class LeagueListPage extends ConsumerWidget {
 class _LeagueCard extends StatelessWidget {
   final LeagueModel league;
   final VoidCallback onDelete;
-  const _LeagueCard({required this.league, required this.onDelete});
+  final bool isAdmin;
+  const _LeagueCard({
+    required this.league,
+    required this.onDelete,
+    required this.isAdmin,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -149,7 +172,7 @@ class _LeagueCard extends StatelessWidget {
 
     return Card(
       child: InkWell(
-        onTap: () => context.push('/leagues/${league.id}'),
+        onTap: () => context.push('/leagues/${league.id}', extra: league),
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 8, 16),
@@ -194,14 +217,15 @@ class _LeagueCard extends StatelessWidget {
                   ],
                 ),
               ),
-              IconButton(
-                onPressed: onDelete,
-                icon: const Icon(Icons.delete_outline_rounded),
-                color: cs.error,
-                iconSize: 20,
-                visualDensity: VisualDensity.compact,
-                tooltip: 'Delete',
-              ),
+              if (isAdmin)
+                IconButton(
+                  onPressed: onDelete,
+                  icon: const Icon(Icons.delete_outline_rounded),
+                  color: cs.error,
+                  iconSize: 20,
+                  visualDensity: VisualDensity.compact,
+                  tooltip: 'Delete',
+                ),
               Icon(Icons.chevron_right_rounded, color: cs.outline),
             ],
           ),
@@ -230,7 +254,7 @@ class _Chip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Row(

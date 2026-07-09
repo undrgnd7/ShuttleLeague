@@ -41,6 +41,14 @@ class LeagueCloudRepository implements LeagueRepository {
   }
 
   @override
+  Future<void> updateLeague(LeagueModel league) async {
+    await _leagues.doc(league.id).update({
+      'name': league.name,
+      'maxPlayers': league.maxPlayers,
+    });
+  }
+
+  @override
   Future<void> deleteLeague(String id) async {
     final memberships = await _leagues.doc(id).collection('players').get();
     final batch = _db.batch();
@@ -106,6 +114,10 @@ class LeagueCloudRepository implements LeagueRepository {
             wins: (l['wins'] as num?)?.toInt() ?? 0,
             losses: (l['losses'] as num?)?.toInt() ?? 0,
             createdAt: (g['createdAt'] as Timestamp).toDate(),
+            gender: g['gender'] == 'female'
+                ? PlayerGender.female
+                : PlayerGender.male,
+            isJoker: g['isJoker'] == true,
           );
         })
         .toList();
@@ -121,16 +133,4 @@ class LeagueCloudRepository implements LeagueRepository {
     );
   }
 
-  PlayerModel _docToPlayerModel(DocumentSnapshot<Map<String, dynamic>> doc) {
-    final d = doc.data()!;
-    return PlayerModel(
-      id: doc.id,
-      name: d['name'] as String,
-      skillLevel: (d['skillLevel'] as num?)?.toInt() ?? 1,
-      rating: (d['rating'] as num?)?.toInt() ?? 0,
-      wins: (d['wins'] as num?)?.toInt() ?? 0,
-      losses: (d['losses'] as num?)?.toInt() ?? 0,
-      createdAt: (d['createdAt'] as Timestamp).toDate(),
-    );
-  }
 }

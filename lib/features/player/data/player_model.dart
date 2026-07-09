@@ -1,3 +1,5 @@
+enum PlayerGender { male, female }
+
 class PlayerModel {
   final String id;
   final String name;
@@ -6,6 +8,10 @@ class PlayerModel {
   final int wins;
   final int losses;
   final DateTime createdAt;
+  final PlayerGender gender;
+  /// A stand-in player used to fill a court when someone doesn't show up.
+  /// Never earns/loses points — excluded from all scoring and leaderboards.
+  final bool isJoker;
 
   PlayerModel({
     required this.id,
@@ -15,5 +21,7 @@ class PlayerModel {
     this.wins = 0,
     this.losses = 0,
     required this.createdAt,
+    this.gender = PlayerGender.male,
+    this.isJoker = false,
   });
 }

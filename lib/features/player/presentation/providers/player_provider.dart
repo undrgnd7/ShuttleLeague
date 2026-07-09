@@ -25,15 +25,27 @@ class PlayerController {
   final PlayerRepository _repo;
   PlayerController(this._repo);
 
-  Future<void> createPlayer(String name, {int skillLevel = 3}) async {
+  Future<void> createPlayer(
+    String name, {
+    int skillLevel = 3,
+    PlayerGender gender = PlayerGender.male,
+    bool isJoker = false,
+  }) async {
     final player = PlayerModel(
       id: const Uuid().v4(),
       name: name.trim(),
       skillLevel: skillLevel,
+      gender: gender,
+      isJoker: isJoker,
       createdAt: DateTime.now(),
     );
     await _repo.addPlayer(player);
   }
 
+  Future<void> updatePlayer(PlayerModel player) => _repo.updatePlayer(player);
+
   Future<void> deletePlayer(String id) => _repo.deletePlayer(id);
+
+  Future<void> adjustPoints(String playerId, {required bool isWin, bool add = true}) =>
+      _repo.adjustPlayerPoints(playerId: playerId, isWin: isWin, add: add);
 }

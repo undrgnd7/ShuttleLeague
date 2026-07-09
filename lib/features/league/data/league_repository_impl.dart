@@ -27,6 +27,16 @@ class LeagueRepositoryImpl implements LeagueRepository {
   }
 
   @override
+  Future<void> updateLeague(LeagueModel league) async {
+    await (db.update(db.leagues)..where((l) => l.id.equals(league.id))).write(
+      LeaguesCompanion(
+        name: Value(league.name),
+        maxPlayers: Value(league.maxPlayers),
+      ),
+    );
+  }
+
+  @override
   Future<List<LeagueModel>> getLeagues() async {
     final rows = await db.select(db.leagues).get();
     return rows

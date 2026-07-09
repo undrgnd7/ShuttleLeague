@@ -56,7 +56,7 @@ class _SplashPageState extends State<SplashPage>
                   width: 88,
                   height: 88,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
+                    color: Colors.white.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(24),
                   ),
                   child: const Icon(
@@ -79,7 +79,7 @@ class _SplashPageState extends State<SplashPage>
                 Text(
                   'Less organizing. More playing.',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.7),
+                    color: Colors.white.withValues(alpha: 0.7),
                     fontSize: 15,
                     fontWeight: FontWeight.w400,
                     letterSpacing: 0.5,
