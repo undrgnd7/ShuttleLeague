@@ -66,7 +66,7 @@ class LeagueDetailPage extends ConsumerWidget {
               child: Wrap(
                 spacing: 8,
                 children: [
-                  if (isAdmin) ...[
+                  if (isAdmin && !activeSessionAsync.isLoading) ...[
                     _ActionChip(
                       icon: activeSessionId != null
                           ? Icons.sports_rounded
@@ -76,6 +76,11 @@ class LeagueDetailPage extends ConsumerWidget {
                           : 'Start Session',
                       color: cs.primary,
                       onTap: () {
+                        // activeSessionId comes from the Firestore-backed
+                        // stream, so by the time isLoading is false this is
+                        // the real active session (if any) — never mint a
+                        // fresh UUID while that's still unresolved, or an
+                        // in-progress session gets silently abandoned.
                         final existing =
                             ref.read(activeSessionProvider(leagueId));
                         final sessionId = existing ??
